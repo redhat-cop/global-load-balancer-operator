@@ -143,5 +143,7 @@ TODO:
 1. <s>add a watch for DNSRecord<s>
 2. test disapperance of a service: reconcicle cycle should not fail.
 3. test cluster unreachable: reconcile cycle should not fail.
-4. complete AWS provider
-5. add ability to autodetect global routes
+4. manage status & events
+5. manage delete & finalizers
+5. complete AWS provider
+6. add ability to autodetect global routes

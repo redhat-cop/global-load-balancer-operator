@@ -21,6 +21,7 @@ oc config view -o yaml > /tmp/kubeconfig
 for namespace in cluster1 cluster2 cluster3; do
   export namespace
   oc new-project ${namespace}
+  oc delete secret kubeconfig -n ${namespace}
   oc create secret generic kubeconfig --from-file /tmp/kubeconfig -n ${namespace}
   export ${namespace}_secret_name=kubeconfig
 done

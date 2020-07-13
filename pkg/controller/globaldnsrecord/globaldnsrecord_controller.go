@@ -78,7 +78,10 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		TypeMeta: metav1.TypeMeta{
 			Kind: "DNSEndpoint",
 		},
-	}}, &handler.EnqueueRequestForOwner{}, util.ResourceGenerationOrFinalizerChangedPredicate{})
+	}}, &handler.EnqueueRequestForOwner{
+		IsController: true,
+		OwnerType:    &redhatcopv1alpha1.GlobalDNSRecord{},
+	})
 	if err != nil {
 		return err
 	}

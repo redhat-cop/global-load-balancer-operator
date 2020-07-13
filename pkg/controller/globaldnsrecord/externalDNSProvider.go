@@ -1,8 +1,16 @@
 package globaldnsrecord
 
 import (
+	"context"
+	"reflect"
+
 	redhatcopv1alpha1 "github.com/redhat-cop/global-load-balancer-operator/pkg/apis/redhatcop/v1alpha1"
+	"github.com/scylladb/go-set/strset"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/types"
+	"sigs.k8s.io/controller-runtime/pkg/client"
+	"sigs.k8s.io/controller-runtime/pkg/controller/controllerutil"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/external-dns/endpoint"
 )
@@ -18,7 +26,7 @@ func (r *ReconcileGlobalDNSRecord) createExternalDNSRecord(instance *redhatcopv1
 		IPs = append(IPs, recordIPs...)
 	}
 	log.V(1).Info("endpoint", "ips", IPs)
-	endpoint := &endpoint.DNSEndpoint{
+	newDNSEndpoint := &endpoint.DNSEndpoint{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "externaldns.k8s.io/v1alpha1",
 			Kind:       "DNSEndpoint",
@@ -40,10 +48,51 @@ func (r *ReconcileGlobalDNSRecord) createExternalDNSRecord(instance *redhatcopv1
 			},
 		},
 	}
-	err := r.CreateOrUpdateResource(instance, "", endpoint)
+	currentDNSEndpoint := &endpoint.DNSEndpoint{}
+	err := r.GetClient().Get(context.TODO(), types.NamespacedName{
+		Name:      newDNSEndpoint.Name,
+		Namespace: newDNSEndpoint.Namespace,
+	}, currentDNSEndpoint)
+
 	if err != nil {
-		log.Error(err, "unable to create or update", "DNSEndpoint", endpoint)
+		if errors.IsNotFound(err) {
+			// we need to create
+			controllerutil.SetControllerReference(instance, newDNSEndpoint, r.GetScheme())
+			err := r.GetClient().Create(context.TODO(), newDNSEndpoint, &client.CreateOptions{})
+			if err != nil {
+				log.Error(err, "unable to create", "DNSEndpoint", newDNSEndpoint)
+				return r.ManageError(instance, err)
+			}
+			return r.ManageSuccess(instance)
+		}
+		log.Error(err, "unable to lookup", "DNSEndpoint", types.NamespacedName{
+			Name:      newDNSEndpoint.Name,
+			Namespace: newDNSEndpoint.Namespace,
+		})
 		return r.ManageError(instance, err)
+	}
+
+	//workaround to deal with the array of IP changing order
+	newEndpoint := newDNSEndpoint.Spec.Endpoints[0].DeepCopy()
+	currentEndpoint := currentDNSEndpoint.Spec.Endpoints[0].DeepCopy()
+
+	newIPSet := strset.New(newEndpoint.Targets...)
+	currentIPSet := strset.New(newEndpoint.Targets...)
+
+	newEndpoint.Targets = []string{}
+	currentEndpoint.Targets = []string{}
+
+	//if we get here we possibly need to update
+	if !currentIPSet.IsEqual(newIPSet) || !reflect.DeepEqual(currentEndpoint, newEndpoint) || !reflect.DeepEqual(currentDNSEndpoint.Annotations, newDNSEndpoint.Annotations) || !reflect.DeepEqual(currentDNSEndpoint.Labels, newDNSEndpoint.Labels) {
+		log.V(1).Info("specs are not equal, needs updating", "currentDNSEdnpoint", currentDNSEndpoint, "newDNSEndpoint", newDNSEndpoint)
+		currentDNSEndpoint.Spec = newDNSEndpoint.Spec
+		currentDNSEndpoint.Labels = newDNSEndpoint.Labels
+		currentDNSEndpoint.Annotations = newDNSEndpoint.Annotations
+		err = r.GetClient().Update(context.TODO(), currentDNSEndpoint, &client.UpdateOptions{})
+		if err != nil {
+			log.Error(err, "unable to update", "DNSEndpoint", newDNSEndpoint)
+			return r.ManageError(instance, err)
+		}
 	}
 
 	return r.ManageSuccess(instance)
