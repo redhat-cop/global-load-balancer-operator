@@ -140,7 +140,7 @@ OPERATOR_NAME='global-load-balancer-operator' NAMESPACE='global-load-balancer-op
 
 
 TODO:
-1. add a watch for DNSRecord
+1. <s>add a watch for DNSRecord<s>
 2. test disapperance of a service: reconcicle cycle should not fail.
 3. test cluster unreachable: reconcile cycle should not fail.
 4. complete AWS provider

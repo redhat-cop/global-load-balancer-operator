@@ -19,6 +19,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/manager"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
+	"sigs.k8s.io/external-dns/endpoint"
 )
 
 const controllerName = "globaldnsrecord-controller"
@@ -70,7 +71,19 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	//cretae wtach to receive events
+	//create a watch on DNSEdnpoint, useful only with the external-dns operator
+
+	// Watch for changes to primary resource GlobalDNSRecord
+	err = c.Watch(&source.Kind{Type: &endpoint.DNSEndpoint{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "DNSEndpoint",
+		},
+	}}, &handler.EnqueueRequestForOwner{}, util.ResourceGenerationOrFinalizerChangedPredicate{})
+	if err != nil {
+		return err
+	}
+
+	//cretae watch to receive events
 	err = c.Watch(
 		&source.Channel{Source: reconcileEventChannel},
 		&handler.EnqueueRequestForObject{},
