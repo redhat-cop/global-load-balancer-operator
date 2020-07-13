@@ -1,0 +1,11 @@
+apiVersion: redhatcop.redhat.io/v1alpha1
+kind: GlobalDNSZone
+metadata:
+  name: external-dns-zone
+spec:
+  # Add fields here
+  domain: ${global_base_domain}
+  provider:
+    externalDNS:
+      annotations: 
+        type: global

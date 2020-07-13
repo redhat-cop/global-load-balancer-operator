@@ -1,0 +1,7 @@
+apiVersion: redhatcop.redhat.io/v1alpha1
+kind: GlobalDNSZone
+metadata:
+  name: example-globaldnszone
+spec:
+  # Add fields here
+  size: 3

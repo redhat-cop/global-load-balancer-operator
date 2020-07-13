@@ -1,0 +1,10 @@
+{
+  "Comment":"UPSERT zone delegation record",
+  "Changes":[
+     {
+        "Action":"UPSERT",
+        "ResourceRecordSet": ${delegation_record}
+  }      
+
+  ]
+}
