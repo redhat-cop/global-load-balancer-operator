@@ -200,7 +200,10 @@ func (r *ReconcileGlobalDNSRecord) Reconcile(request reconcile.Request) (reconci
 		endpointStatus, err := r.getEndPointStatus(endpoint)
 		if err != nil {
 			log.Error(err, "unable to retrieve endpoint status for", "endpoint", endpoint)
-			return r.ManageError(instance, err)
+			endpointStatus = &EndpointStatus{
+				err:      err,
+				endpoint: endpoint,
+			}
 		}
 		endpointStatusMap[getEndpointKey(endpoint)] = *endpointStatus
 	}

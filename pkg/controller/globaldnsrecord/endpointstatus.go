@@ -22,6 +22,7 @@ type EndpointStatus struct {
 	service             corev1.Service
 	infraSpecificConfig interface{}
 	infrastructure      ocpconfigv1.Infrastructure
+	err                 error
 }
 
 func (es *EndpointStatus) getIPs() ([]string, error) {

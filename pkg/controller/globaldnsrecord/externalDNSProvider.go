@@ -18,6 +18,9 @@ import (
 func (r *ReconcileGlobalDNSRecord) createExternalDNSRecord(instance *redhatcopv1alpha1.GlobalDNSRecord, globalzone *redhatcopv1alpha1.GlobalDNSZone, endpointMap map[string]EndpointStatus) (reconcile.Result, error) {
 	IPs := []string{}
 	for _, endpointStatus := range endpointMap {
+		if endpointStatus.err != nil {
+			continue
+		}
 		recordIPs, err := endpointStatus.getIPs()
 		if err != nil {
 			log.Error(err, "unale to get IPs for", "endpoint", endpointStatus)
@@ -77,7 +80,7 @@ func (r *ReconcileGlobalDNSRecord) createExternalDNSRecord(instance *redhatcopv1
 	currentEndpoint := currentDNSEndpoint.Spec.Endpoints[0].DeepCopy()
 
 	newIPSet := strset.New(newEndpoint.Targets...)
-	currentIPSet := strset.New(newEndpoint.Targets...)
+	currentIPSet := strset.New(currentEndpoint.Targets...)
 
 	newEndpoint.Targets = []string{}
 	currentEndpoint.Targets = []string{}
