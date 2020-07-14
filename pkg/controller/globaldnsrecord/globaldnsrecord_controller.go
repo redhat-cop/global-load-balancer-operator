@@ -5,10 +5,12 @@ import (
 	errs "errors"
 	"strings"
 
+	astatus "github.com/operator-framework/operator-sdk/pkg/ansible/controller/status"
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	redhatcopv1alpha1 "github.com/redhat-cop/global-load-balancer-operator/pkg/apis/redhatcop/v1alpha1"
 	"github.com/redhat-cop/operator-utils/pkg/util"
-	"github.com/redhat-cop/operator-utils/pkg/util/stoppablemanager"
 	"github.com/scylladb/go-set/strset"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
@@ -102,7 +104,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 var _ reconcile.Reconciler = &ReconcileGlobalDNSRecord{}
 
 // this contains a map of endpoint keys and the relative controlling manager
-type EndPointManagers map[string]*stoppablemanager.StoppableManager
+type EndPointManagers map[string]*RemoteManager
 
 // this containes a map of currently know DNSrecords and their map of endpoint managers
 var TrackedEndpointMap = map[types.NamespacedName]EndPointManagers{}
@@ -133,7 +135,7 @@ func (r *ReconcileGlobalDNSRecord) Reconcile(request reconcile.Request) (reconci
 	}
 
 	// retrieve global zone
-
+	endpointStatusMap := map[string]EndpointStatus{}
 	globalZone := &redhatcopv1alpha1.GlobalDNSZone{}
 	err = r.GetClient().Get(context.TODO(), types.NamespacedName{
 		Name: instance.Spec.GlobalZoneRef.Name,
@@ -143,7 +145,7 @@ func (r *ReconcileGlobalDNSRecord) Reconcile(request reconcile.Request) (reconci
 		log.Error(err, "unable to find referred ", "globalzone", types.NamespacedName{
 			Name: instance.Spec.GlobalZoneRef.Name,
 		})
-		return r.ManageError(instance, err)
+		return r.ManageError(instance, endpointStatusMap, err)
 	}
 
 	log.V(1).Info("found global zone")
@@ -151,7 +153,7 @@ func (r *ReconcileGlobalDNSRecord) Reconcile(request reconcile.Request) (reconci
 	if !strings.HasSuffix(instance.Spec.Name, globalZone.Spec.Domain) {
 		err := errs.New("global record does not belogn to domain")
 		log.Error(err, "global", "record", instance.Spec.Name, "does not belong to domain", globalZone.Spec.Domain)
-		return r.ManageError(instance, err)
+		return r.ManageError(instance, endpointStatusMap, err)
 	}
 
 	// [1] verify if we have a GlobalDNSRecord for this instance
@@ -184,7 +186,7 @@ func (r *ReconcileGlobalDNSRecord) Reconcile(request reconcile.Request) (reconci
 		log.V(1).Info("new remote managers created")
 		if err != nil {
 			log.Error(err, "unable to create remote managers")
-			return r.ManageError(instance, err)
+			return r.ManageError(instance, endpointStatusMap, err)
 		}
 		for _, stoppableManager := range endpointManagerMap {
 			stoppableManager.Start()
@@ -195,7 +197,6 @@ func (r *ReconcileGlobalDNSRecord) Reconcile(request reconcile.Request) (reconci
 
 	// at this point the remoteManagers are created correctly and this will start sending us events if any of the service changes.
 
-	endpointStatusMap := map[string]EndpointStatus{}
 	for _, endpoint := range instance.Spec.Endpoints {
 		endpointStatus, err := r.getEndPointStatus(endpoint)
 		if err != nil {
@@ -220,14 +221,14 @@ func (r *ReconcileGlobalDNSRecord) Reconcile(request reconcile.Request) (reconci
 
 	// if able create record.
 
-	return r.ManageSuccess(instance)
+	return r.ManageSuccess(instance, endpointStatusMap)
 }
 
 func getEndpointKey(endpoint redhatcopv1alpha1.Endpoint) string {
 	return endpoint.ClusterName + "#" + endpoint.LoadBalancerServiceRef.Namespace + "/" + endpoint.LoadBalancerServiceRef.Name
 }
 
-func (r *ReconcileGlobalDNSRecord) createManager(endpoint redhatcopv1alpha1.Endpoint, instance *redhatcopv1alpha1.GlobalDNSRecord) (*stoppablemanager.StoppableManager, error) {
+func (r *ReconcileGlobalDNSRecord) createManager(endpoint redhatcopv1alpha1.Endpoint, instance *redhatcopv1alpha1.GlobalDNSRecord) (*RemoteManager, error) {
 	restConfig, err := r.getRestConfig(endpoint)
 	if err != nil {
 		log.Error(err, "unable to create client for", "endpoint", endpoint)
@@ -239,21 +240,21 @@ func (r *ReconcileGlobalDNSRecord) createManager(endpoint redhatcopv1alpha1.Endp
 		Scheme:             r.GetScheme(),
 	}
 
-	stoppableManager, err := stoppablemanager.NewStoppableManager(restConfig, options)
+	remoteManager, err := NewRemoteManager(restConfig, options, getEndpointKey(endpoint))
 	if err != nil {
 		log.Error(err, "unable to create stoppable manager for", "endpoint", endpoint)
 		return nil, err
 	}
-	_, err = newServiceReconciler(stoppableManager.Manager, reconcileEventChannel, endpoint, instance)
+	_, err = newServiceReconciler(remoteManager, reconcileEventChannel, endpoint, instance)
 	if err != nil {
 		log.Error(err, "unable create serviceReconciler", "for endpoint", endpoint)
 		return nil, err
 	}
-	return &stoppableManager, nil
+	return remoteManager, nil
 }
 
-func (r *ReconcileGlobalDNSRecord) createRemoteManagers(instance *redhatcopv1alpha1.GlobalDNSRecord) (map[string]*stoppablemanager.StoppableManager, error) {
-	managerMap := map[string]*stoppablemanager.StoppableManager{}
+func (r *ReconcileGlobalDNSRecord) createRemoteManagers(instance *redhatcopv1alpha1.GlobalDNSRecord) (map[string]*RemoteManager, error) {
+	managerMap := map[string]*RemoteManager{}
 	for _, endpoint := range instance.Spec.Endpoints {
 		stoppablemanager, err := r.createManager(endpoint, instance)
 		if err != nil {
@@ -276,4 +277,62 @@ func isSameServices(endpointManagerMap EndPointManagers, instance *redhatcopv1al
 	}
 	same = currentRecord.IsEqual(newRecord)
 	return same
+}
+
+//ManageError manage error sets an error status in the CR and fires an event, finally it returns the error so the operator can re-attempt
+func (r *ReconcileGlobalDNSRecord) ManageError(instance *redhatcopv1alpha1.GlobalDNSRecord, endpointStatusMap map[string]EndpointStatus, issue error) (reconcile.Result, error) {
+	r.GetRecorder().Event(instance, "Warning", "ProcessingError", issue.Error())
+	condition := status.Condition{
+		Type:               "ReconcileError",
+		LastTransitionTime: metav1.Now(),
+		Message:            issue.Error(),
+		Reason:             astatus.FailedReason,
+		Status:             corev1.ConditionTrue,
+	}
+	status := redhatcopv1alpha1.GlobalDNSRecordStatus{
+		Conditions:               status.NewConditions(condition),
+		MonitoredServiceStatuses: getMonitoredServiceStatuses(instance, r.GetRecorder()),
+		EndpointStatuses:         getEndpointStatuses(instance, endpointStatusMap, r.GetRecorder()),
+	}
+	instance.Status = status
+	log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
+	err := r.GetClient().Status().Update(context.Background(), instance)
+	if err != nil {
+		if errors.IsResourceExpired(err) {
+			log.Info("unable to update status for", "object version", instance.GetResourceVersion(), "resource version expired, will trigger another reconcile cycle", "")
+		} else {
+			log.Error(err, "unable to update status for", "object", instance)
+		}
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, issue
+}
+
+// ManageSuccess will update the status of the CR and return a successful reconcile result
+func (r *ReconcileGlobalDNSRecord) ManageSuccess(instance *redhatcopv1alpha1.GlobalDNSRecord, endpointStatusMap map[string]EndpointStatus) (reconcile.Result, error) {
+	condition := status.Condition{
+		Type:               "ReconcileSuccess",
+		LastTransitionTime: metav1.Now(),
+		Message:            astatus.SuccessfulMessage,
+		Reason:             astatus.SuccessfulReason,
+		Status:             corev1.ConditionTrue,
+	}
+	status := redhatcopv1alpha1.GlobalDNSRecordStatus{
+		Conditions:               status.NewConditions(condition),
+		MonitoredServiceStatuses: getMonitoredServiceStatuses(instance, r.GetRecorder()),
+		EndpointStatuses:         getEndpointStatuses(instance, endpointStatusMap, r.GetRecorder()),
+	}
+	instance.Status = status
+	log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
+	log.V(1).Info("about to update status", "instance", instance)
+	err := r.GetClient().Status().Update(context.Background(), instance)
+	if err != nil {
+		if errors.IsResourceExpired(err) {
+			log.Info("unable to update status for", "object version", instance.GetResourceVersion(), "resource version expired, will trigger another reconcile cycle", "")
+		} else {
+			log.Error(err, "unable to update status for", "object", instance)
+		}
+		return reconcile.Result{}, err
+	}
+	return reconcile.Result{}, nil
 }

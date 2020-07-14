@@ -24,7 +24,7 @@ func (r *ReconcileGlobalDNSRecord) createExternalDNSRecord(instance *redhatcopv1
 		recordIPs, err := endpointStatus.getIPs()
 		if err != nil {
 			log.Error(err, "unale to get IPs for", "endpoint", endpointStatus)
-			return r.ManageError(instance, err)
+			return r.ManageError(instance, endpointMap, err)
 		}
 		IPs = append(IPs, recordIPs...)
 	}
@@ -64,15 +64,15 @@ func (r *ReconcileGlobalDNSRecord) createExternalDNSRecord(instance *redhatcopv1
 			err := r.GetClient().Create(context.TODO(), newDNSEndpoint, &client.CreateOptions{})
 			if err != nil {
 				log.Error(err, "unable to create", "DNSEndpoint", newDNSEndpoint)
-				return r.ManageError(instance, err)
+				return r.ManageError(instance, endpointMap, err)
 			}
-			return r.ManageSuccess(instance)
+			return r.ManageSuccess(instance, endpointMap)
 		}
 		log.Error(err, "unable to lookup", "DNSEndpoint", types.NamespacedName{
 			Name:      newDNSEndpoint.Name,
 			Namespace: newDNSEndpoint.Namespace,
 		})
-		return r.ManageError(instance, err)
+		return r.ManageError(instance, endpointMap, err)
 	}
 
 	//workaround to deal with the array of IP changing order
@@ -94,10 +94,10 @@ func (r *ReconcileGlobalDNSRecord) createExternalDNSRecord(instance *redhatcopv1
 		err = r.GetClient().Update(context.TODO(), currentDNSEndpoint, &client.UpdateOptions{})
 		if err != nil {
 			log.Error(err, "unable to update", "DNSEndpoint", newDNSEndpoint)
-			return r.ManageError(instance, err)
+			return r.ManageError(instance, endpointMap, err)
 		}
 	}
 
-	return r.ManageSuccess(instance)
+	return r.ManageSuccess(instance, endpointMap)
 
 }

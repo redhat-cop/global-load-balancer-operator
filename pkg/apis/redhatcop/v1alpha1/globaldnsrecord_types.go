@@ -1,6 +1,7 @@
 package v1alpha1
 
 import (
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -85,6 +86,20 @@ type GlobalDNSRecordStatus struct {
 	// INSERT ADDITIONAL STATUS FIELD - define observed state of cluster
 	// Important: Run "operator-sdk generate k8s" to regenerate code after modifying this file
 	// Add custom validation using kubebuilder tags: https://book-v1.book.kubebuilder.io/beyond_basics/generating_crd.html
+
+	// ReconcileStatus this is the general status of the main reconciler
+	// +kubebuilder:validation:Optional
+	Conditions status.Conditions `json:"conditions,omitempty"`
+
+	//MonitoredServiceStatuses contains the reconcile status of each of the monitored services in the remote clusters
+	// +kubebuilder:validation:Optional
+	// +mapType:=granular
+	MonitoredServiceStatuses map[string]status.Conditions `json:"monitoredServiceStatuses,omitempty"`
+
+	//EndpointStatuses contains the status of the endpoint as they were looked up during the latest reconcile. We don't fail when an endpoint look up fails, but we need to tarck its status.
+	// +kubebuilder:validation:Optional
+	// +mapType:=granular
+	EndpointStatuses map[string]status.Conditions `json:"endpointStatuses,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

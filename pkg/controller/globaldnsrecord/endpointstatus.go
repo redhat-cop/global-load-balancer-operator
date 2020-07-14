@@ -6,11 +6,15 @@ import (
 	"net"
 
 	ocpconfigv1 "github.com/openshift/api/config/v1"
+	astatus "github.com/operator-framework/operator-sdk/pkg/ansible/controller/status"
+	"github.com/operator-framework/operator-sdk/pkg/status"
 	redhatcopv1alpha1 "github.com/redhat-cop/global-load-balancer-operator/pkg/apis/redhatcop/v1alpha1"
 	corev1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
+	"k8s.io/client-go/tools/record"
 	"k8s.io/kubectl/pkg/scheme"
 	"sigs.k8s.io/controller-runtime/pkg/client"
 	"sigs.k8s.io/controller-runtime/pkg/client/apiutil"
@@ -160,4 +164,33 @@ func (r *ReconcileGlobalDNSRecord) getClient(endpoint redhatcopv1alpha1.Endpoint
 		return nil, err
 	}
 	return client, nil
+}
+
+func getEndpointStatuses(instance *redhatcopv1alpha1.GlobalDNSRecord, endpointStatusMap map[string]EndpointStatus, recorder record.EventRecorder) map[string]status.Conditions {
+	conditionMap := map[string]status.Conditions{}
+	for key, endpointStatus := range endpointStatusMap {
+		if endpointStatus.err != nil {
+			//we are in a error situation
+			recorder.Event(instance, "Warning", "ProcessingError", endpointStatus.err.Error())
+			condition := status.Condition{
+				Type:               "ReconcileError",
+				LastTransitionTime: metav1.Now(),
+				Message:            endpointStatus.err.Error(),
+				Reason:             astatus.FailedReason,
+				Status:             corev1.ConditionTrue,
+			}
+			conditionMap[key] = status.NewConditions(condition)
+		} else {
+			// we are in a success stuation
+			condition := status.Condition{
+				Type:               "ReconcileSuccess",
+				LastTransitionTime: metav1.Now(),
+				Message:            astatus.SuccessfulMessage,
+				Reason:             astatus.SuccessfulReason,
+				Status:             corev1.ConditionTrue,
+			}
+			conditionMap[key] = status.NewConditions(condition)
+		}
+	}
+	return conditionMap
 }
