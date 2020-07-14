@@ -144,7 +144,7 @@ TODO:
 2. <s>test disapperance of a service: reconcicle cycle should not fail.</s>
 3. test cluster unreachable: reconcile cycle should not fail.
 4. <s>manage status & events</s>
-5. manage delete & finalizers
+5. <s>manage delete & finalizers</s>
 5. complete AWS provider
 6. add ability to autodetect global routes
 7. evaluate using a different implementation of DNSRecord.
