@@ -1,6 +1,27 @@
 # Setting up external-dns provider
 
-This setup assume you are running in AWS.
+This setup assumes you are running in AWS.
+
+The following variables need to be initialized:
+
+```shell
+export cluster1_service_name=
+export cluster2_service_name=
+export cluster3_service_name=
+export cluster1_service_namespace=
+export cluster2_service_namespace=
+export cluster3_service_namespace=
+export cluster1_secret_name=
+export cluster2_secret_name=
+export cluster3_secret_name=
+```
+
+They will be initialized if you follow one of the installation methods
+
+1. [one cluster, three ingresses](./one-cluster-three-ingresses.md)
+2. [three clusters](./three-clusters.md)
+
+or you can setup your onw set of clusters and initialize those variables.
 
 ## Create global zone
 
