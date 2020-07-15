@@ -134,8 +134,9 @@ func (r *ReconcileGlobalDNSRecord) Reconcile(request reconcile.Request) (reconci
 		return reconcile.Result{}, err
 	}
 
-	// retrieve global zone
 	endpointStatusMap := map[string]EndpointStatus{}
+	// retrieve global zone
+
 	globalZone := &redhatcopv1alpha1.GlobalDNSZone{}
 	err = r.GetClient().Get(context.TODO(), types.NamespacedName{
 		Name: instance.Spec.GlobalZoneRef.Name,
@@ -146,6 +147,33 @@ func (r *ReconcileGlobalDNSRecord) Reconcile(request reconcile.Request) (reconci
 			Name: instance.Spec.GlobalZoneRef.Name,
 		})
 		return r.ManageError(instance, endpointStatusMap, err)
+	}
+
+	if ok := r.IsInitialized(instance); !ok {
+		err := r.GetClient().Update(context.TODO(), instance)
+		if err != nil {
+			log.Error(err, "unable to update instance", "instance", instance.GetName())
+			return r.ManageError(instance, endpointStatusMap, err)
+		}
+		return reconcile.Result{}, nil
+	}
+
+	if util.IsBeingDeleted(instance) {
+		if !util.HasFinalizer(instance, controllerName) {
+			return reconcile.Result{}, nil
+		}
+		err := r.manageCleanUpLogic(instance, globalZone)
+		if err != nil {
+			log.Error(err, "unable to delete instance", "instance", instance.GetName())
+			return r.ManageError(instance, endpointStatusMap, err)
+		}
+		util.RemoveFinalizer(instance, controllerName)
+		err = r.GetClient().Update(context.TODO(), instance)
+		if err != nil {
+			log.Error(err, "unable to update instance", "instance", instance.GetName())
+			return r.ManageError(instance, endpointStatusMap, err)
+		}
+		return reconcile.Result{}, nil
 	}
 
 	log.V(1).Info("found global zone")
@@ -335,4 +363,39 @@ func (r *ReconcileGlobalDNSRecord) ManageSuccess(instance *redhatcopv1alpha1.Glo
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
+}
+
+//IsInitialized initislizes the instance, currently is simply adds a finalizer.
+func (r *ReconcileGlobalDNSRecord) IsInitialized(obj metav1.Object) bool {
+	isInitialized := true
+	globalDNSRecord, ok := obj.(*redhatcopv1alpha1.GlobalDNSRecord)
+	if !ok {
+		log.Error(errs.New("unable to convert to egressIPAM"), "unable to convert to egressIPAM")
+		return false
+	}
+	if !util.HasFinalizer(globalDNSRecord, controllerName) {
+		util.AddFinalizer(globalDNSRecord, controllerName)
+		isInitialized = false
+	}
+	return isInitialized
+}
+
+func (r *ReconcileGlobalDNSRecord) manageCleanUpLogic(instance *redhatcopv1alpha1.GlobalDNSRecord, globalZone *redhatcopv1alpha1.GlobalDNSZone) error {
+	// stop managers
+	if endpointManagerMap, ok := TrackedEndpointMap[types.NamespacedName{
+		Name:      instance.Name,
+		Namespace: instance.Namespace,
+	}]; ok {
+		for _, remoteManager := range endpointManagerMap {
+			remoteManager.Stop()
+		}
+	}
+
+	// provider specific finalizer
+
+	if globalZone.Spec.Provider.ExternalDNS != nil {
+		//nothing to do here because for the ownership rule, the DNSEndpoint record will be deleted and the external-dns operator will clean up the DNS configuration
+		return nil
+	}
+	return errs.New("illegal state")
 }
