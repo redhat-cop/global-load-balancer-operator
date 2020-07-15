@@ -1,4 +1,4 @@
-# One Cluster Three Ingress Gateway Setup
+# One Cluster Three Ingresses Setup
 
 ## Create ingress controllers
 

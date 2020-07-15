@@ -1,0 +1,9 @@
+region: ${region}
+baseDomain: ${base_domain}
+sshKey: |
+${ssh_key}  
+sshPubKey: ${ssh_pub_key}
+aws_id: ${aws_id}
+aws_key: ${aws_key}
+docker_pull_secret: 
+  ${pull_secret}
