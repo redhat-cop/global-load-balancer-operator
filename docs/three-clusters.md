@@ -31,15 +31,15 @@ create clusters
 
 ```shell
 export region="us-east-1"
-envsubst < ./docs/scripts/cluster-values.yaml > /tmp/values.yaml
+envsubst < ./docs/scripts/acm-cluster-values.yaml > /tmp/values.yaml
 helm upgrade cluster1 ./docs/scripts/acm-aws-cluster --create-namespace -i -n cluster1  -f /tmp/values.yaml
 
 export region="us-east-2"
-envsubst < ./docs/scripts/cluster-values.yaml > /tmp/values.yaml
+envsubst < ./docs/scripts/acm-cluster-values.yaml > /tmp/values.yaml
 helm upgrade cluster2 ./docs/scripts/acm-aws-cluster --create-namespace -i -n cluster2  -f /tmp/values.yaml
 
 export region="us-west-1"
-envsubst < ./docs/scripts/cluster-values.yaml > /tmp/values.yaml
+envsubst < ./docs/scripts/acm-cluster-values.yaml > /tmp/values.yaml
 helm upgrade cluster3 ./docs/scripts/acm-aws-cluster --create-namespace -i -n cluster3  -f /tmp/values.yaml
 ```
 
@@ -52,7 +52,7 @@ export cluster3_service_name=router-default
 export cluster1_service_namespace=openshift-ingress
 export cluster2_service_namespace=openshift-ingress
 export cluster3_service_namespace=openshift-ingress
-export cluster1_secret_name=$(oc get clusterdeployment cluster1 -n cluster1 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef}')
-export cluster2_secret_name=$(oc get clusterdeployment cluster2 -n cluster2 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef}')
-export cluster3_secret_name=$(oc get clusterdeployment cluster3 -n cluster3 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef}')
+export cluster1_secret_name=$(oc get clusterdeployment cluster1-acm-aws-cluster -n cluster1 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+export cluster2_secret_name=$(oc get clusterdeployment cluster2-acm-aws-cluster -n cluster2 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+export cluster3_secret_name=$(oc get clusterdeployment cluster3-acm-aws-cluster -n cluster3 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
 ```
