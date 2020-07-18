@@ -3,7 +3,7 @@ module github.com/redhat-cop/global-load-balancer-operator
 go 1.13
 
 require (
-	github.com/aws/aws-sdk-go v1.31.4
+	github.com/aws/aws-sdk-go v1.33.6
 	github.com/openshift/api v0.0.0-20200710154525-af4dd20aed23
 	github.com/openshift/cloud-credential-operator v0.0.0-20200710182712-e5d1e9c86fd8
 	github.com/operator-framework/operator-sdk v0.18.1
@@ -21,5 +21,6 @@ require (
 replace (
 	github.com/Azure/go-autorest => github.com/Azure/go-autorest v13.3.2+incompatible // Required by OLM
 	github.com/Azure/go-autorest/autorest/azure/auth => github.com/Azure/go-autorest/autorest/azure/auth v0.3.0 //required by external-dns
+	github.com/aws/aws-sdk-go => github.com/aws/aws-sdk-go v1.33.6
 	k8s.io/client-go => k8s.io/client-go v0.18.2 // Required by prometheus-operator
 )

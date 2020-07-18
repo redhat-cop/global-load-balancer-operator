@@ -100,6 +100,29 @@ type GlobalDNSRecordStatus struct {
 	// +kubebuilder:validation:Optional
 	// +mapType:=granular
 	EndpointStatuses map[string]status.Conditions `json:"endpointStatuses,omitempty"`
+
+	//ProviderStatus contains provider specific status information
+	// +kubebuilder:validation:Optional
+	ProviderStatus ProviderStatus `json:"providerStatus,omitempty"`
+}
+
+//ProviderStatus contains provider specific status information
+// Only one field can be initialized
+type ProviderStatus struct {
+	// +kubebuilder:validation:Optional
+	Route53 *Route53ProviderStatus `json:"route53,omitempty"`
+}
+
+type Route53ProviderStatus struct {
+	//PolicyID represents the route53 routing policy created for this record
+	// +kubebuilder:validation:Optional
+	PolicyID string `json:"policyID,omitempty"`
+	//HealthCheckID represents the route53 healthcheck created for this record
+	// +kubebuilder:validation:Optional
+	HealthCheckID string `json:"healthCheckID,omitempty"`
+	//PolicyInstanceID represents the ID of the DNSRecord
+	// +kubebuilder:validation:Optional
+	PolicyInstanceID string `json:"PolicyInstanceID,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

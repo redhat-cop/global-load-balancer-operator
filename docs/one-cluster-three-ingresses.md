@@ -5,6 +5,9 @@
 This will create three ingress controllers and relative routers. They will act as if they were ingress points for three separate clusters
 
 ```shell
+export cluster_base_domain=$(oc get dns cluster -o jsonpath='{.spec.baseDomain}')
+export cluster_zone_id=$(oc get dns cluster -o jsonpath='{.spec.publicZone.id}')
+export global_base_domain=global.${cluster_base_domain#*.}
 for namespace in cluster1 cluster2 cluster3; do
   export namespace
   envsubst < ./docs/scripts/router.yaml | oc apply -f -
