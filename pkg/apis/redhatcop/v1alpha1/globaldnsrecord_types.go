@@ -119,10 +119,11 @@ type Route53ProviderStatus struct {
 	PolicyID string `json:"policyID,omitempty"`
 	//HealthCheckID represents the route53 healthcheck created for this record
 	// +kubebuilder:validation:Optional
-	HealthCheckID string `json:"healthCheckID,omitempty"`
+	// +mapType:=granular
+	HealthCheckIDs map[string]string `json:"healthCheckID,omitempty"`
 	//PolicyInstanceID represents the ID of the DNSRecord
 	// +kubebuilder:validation:Optional
-	PolicyInstanceID string `json:"PolicyInstanceID,omitempty"`
+	PolicyInstanceID string `json:"policyInstanceID,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

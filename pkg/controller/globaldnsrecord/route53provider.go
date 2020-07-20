@@ -6,19 +6,17 @@ import (
 	"reflect"
 
 	"github.com/aws/aws-sdk-go/aws"
-	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/route53"
 	ocpconfigv1 "github.com/openshift/api/config/v1"
 	redhatcopv1alpha1 "github.com/redhat-cop/global-load-balancer-operator/pkg/apis/redhatcop/v1alpha1"
-	"github.com/redhat-cop/global-load-balancer-operator/pkg/controller/common"
+	tpdroute53 "github.com/redhat-cop/global-load-balancer-operator/pkg/controller/common/route53"
+	"github.com/redhat-cop/global-load-balancer-operator/pkg/controller/common/route53/route53endpointrulereferenceset"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	corev1 "k8s.io/api/core/v1"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
 func (r *ReconcileGlobalDNSRecord) createRoute53Record(instance *redhatcopv1alpha1.GlobalDNSRecord, globalzone *redhatcopv1alpha1.GlobalDNSZone, endpointMap map[string]EndpointStatus) (reconcile.Result, error) {
-
-	//TODO
 
 	// validate that all infratsrcutre is homogeneus
 	for _, endpointStatus := range endpointMap {
@@ -29,99 +27,99 @@ func (r *ReconcileGlobalDNSRecord) createRoute53Record(instance *redhatcopv1alph
 		}
 	}
 
-	route53Client, err := common.GetRoute53Client(globalzone, &r.ReconcilerBase)
+	route53Client, err := tpdroute53.GetRoute53Client(globalzone, &r.ReconcilerBase)
 	if err != nil {
 		log.Error(err, "unable to get route53 client")
 		return r.ManageError(instance, endpointMap, err)
 	}
 
-	// ensure health check
-	if !reflect.DeepEqual(instance.Spec.HealthCheck, corev1.Probe{}) {
-		err = ensureRoute53HealthCheck(instance, route53Client)
-		if err != nil {
-			log.Error(err, "unable to ensure the existance of", "healthcheck", instance.Spec.HealthCheck)
-			return r.ManageError(instance, endpointMap, err)
-		}
+	if instance.Status.ProviderStatus.Route53 == nil {
+		instance.Status.ProviderStatus.Route53 = &redhatcopv1alpha1.Route53ProviderStatus{}
 	}
 
+	// // ensure health check
+	// if !reflect.DeepEqual(instance.Spec.HealthCheck, corev1.Probe{}) {
+	// 	healthCheckID, err := ensureRoute53HealthCheck(instance, route53Client)
+	// 	if err != nil {
+	// 		log.Error(err, "unable to ensure the existance of", "healthcheck", instance.Spec.HealthCheck)
+	// 		return r.ManageError(instance, endpointMap, err)
+	// 	}
+	// 	instance.Status.ProviderStatus.Route53.HealthCheckID = healthCheckID
+	// }
+
 	// ensure traffic policy
-	err = ensureRoute53TrafficPolicy(instance, route53Client, endpointMap)
+	trafficPolicyID, err := ensureRoute53TrafficPolicy(instance, route53Client, endpointMap)
 	if err != nil {
 		log.Error(err, "unable to ensure the existance of", "traffic policy", instance.Spec.LoadBalancingPolicy)
 		return r.ManageError(instance, endpointMap, err)
 	}
-
+	instance.Status.ProviderStatus.Route53.PolicyID = trafficPolicyID
 	// ensure dns record
-	err = ensureRoute53DNSRecord(instance, globalzone, route53Client)
+	trafficPolicyInstanceID, err := ensureRoute53DNSRecord(instance, globalzone, route53Client, trafficPolicyID)
 	if err != nil {
 		log.Error(err, "unable to ensure the existance of", "dns record", instance.Spec.Name)
 		return r.ManageError(instance, endpointMap, err)
 	}
-
+	instance.Status.ProviderStatus.Route53.PolicyInstanceID = trafficPolicyInstanceID
 	return r.ManageSuccess(instance, endpointMap)
 }
 
-func ensureRoute53HealthCheck(instance *redhatcopv1alpha1.GlobalDNSRecord, route53Client *route53.Route53) error {
-	// check if health check exists
-	var currentHealthCheckOutput *route53.GetHealthCheckOutput
-	if instance.Status.ProviderStatus.Route53 != nil && instance.Status.ProviderStatus.Route53.HealthCheckID != "" {
-		var err error
-		currentHealthCheckOutput, err = route53Client.GetHealthCheck(&route53.GetHealthCheckInput{
-			HealthCheckId: aws.String(instance.Status.ProviderStatus.Route53.HealthCheckID),
-		})
-		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				switch aerr.Code() {
-				case route53.ErrCodeNoSuchHealthCheck:
-					// we need to create a new health check
-					instance.Status.ProviderStatus.Route53.HealthCheckID, err = createHealthCheck(&instance.Spec.HealthCheck, route53Client)
-					if err != nil {
-						log.Error(err, "unable to create route53 healthcheck", "for probe", instance.Spec.HealthCheck)
-						return err
-					}
-					return nil
-				default:
-					log.Error(err, "unable to look up", "health check", instance.Status.ProviderStatus.Route53.HealthCheckID)
-					return err
-				}
-			}
+func ensureRoute53HealthCheck(instance *redhatcopv1alpha1.GlobalDNSRecord, route53Client *route53.Route53, ip string) (string, error) {
+
+	healthChecks, err := route53Client.ListHealthChecks(&route53.ListHealthChecksInput{})
+	if err != nil {
+		log.Error(err, "unable to list route53 healthchecks")
+		return "", err
+	}
+	var currentHealthCheck *route53.HealthCheck
+	for _, healthCheck := range healthChecks.HealthChecks {
+		if *healthCheck.HealthCheckConfig.FullyQualifiedDomainName == instance.Spec.HealthCheck.HTTPGet.Host && *healthCheck.HealthCheckConfig.IPAddress == ip {
+			log.V(1).Info("found existing", "health check for", *healthCheck.HealthCheckConfig.FullyQualifiedDomainName)
+			currentHealthCheck = healthCheck
 		}
-	} else {
-		// we need to create a new health check
-		var err error
-		instance.Status.ProviderStatus.Route53.HealthCheckID, err = createHealthCheck(&instance.Spec.HealthCheck, route53Client)
+	}
+
+	if currentHealthCheck == nil {
+		//we need to create a new healthcheck
+		healthCheckID, err := createHealthCheck(&instance.Spec.HealthCheck, route53Client, ip)
 		if err != nil {
 			log.Error(err, "unable to create route53 healthcheck", "for probe", instance.Spec.HealthCheck)
-			return err
+			return "", err
 		}
-		return nil
+		return healthCheckID, nil
 	}
+
 	//if we are here the helth check already exists, we need to check that it's still current
-	newHealthCheck, err := getAWSHealthCheckConfig(&instance.Spec.HealthCheck)
+	newHealthCheckConfig, err := getAWSHealthCheckConfig(&instance.Spec.HealthCheck, ip)
 	if err != nil {
 		log.Error(err, "unable to convert probe to aws health check", "probe", instance.Spec.HealthCheck)
-		return err
+		return "", err
 	}
-	if !reflect.DeepEqual(newHealthCheck, currentHealthCheckOutput.HealthCheck.HealthCheckConfig) {
+	log.V(1).Info("health check was found, checking if it needs update")
+	log.V(1).Info("current", "config", currentHealthCheck.HealthCheckConfig)
+	log.V(1).Info("bew", "config", newHealthCheckConfig)
+	if !reflect.DeepEqual(newHealthCheckConfig, currentHealthCheck.HealthCheckConfig) {
 		// we need to update the health check
-		updateHealthCheckInput := getAWSUpdateHealthCheckInput(newHealthCheck)
-		err = route53.UpdateHealthCheck(updateHealthCheckInput)
+		updateHealthCheckInput := getAWSUpdateHealthCheckInput(newHealthCheckConfig)
+		updateHealthCheckInput.HealthCheckId = currentHealthCheck.Id
+		result, err := route53Client.UpdateHealthCheck(updateHealthCheckInput)
 		if err != nil {
 			log.Error(err, "unable to update aws health check", "probe", updateHealthCheckInput)
-			return err
+			return "", err
 		}
+		return *result.HealthCheck.Id, nil
 	}
-	return nil
+	return *currentHealthCheck.Id, nil
 }
 
-func createHealthCheck(probe *corev1.Probe, route53Client *route53.Route53) (string, error) {
-	healthCheckConfig, err := getAWSHealthCheckConfig(probe)
+func createHealthCheck(probe *corev1.Probe, route53Client *route53.Route53, ip string) (string, error) {
+	healthCheckConfig, err := getAWSHealthCheckConfig(probe, ip)
 	if err != nil {
 		log.Error(err, "unable to convert probe to aws health check", "probe", probe)
 		return "", err
 	}
 	healthCheckInput := route53.CreateHealthCheckInput{
-		CallerReference:   aws.String(controllerName),
+		CallerReference:   aws.String(*healthCheckConfig.FullyQualifiedDomainName + "@" + *healthCheckConfig.IPAddress),
 		HealthCheckConfig: healthCheckConfig,
 	}
 	result, err := route53Client.CreateHealthCheck(&healthCheckInput)
@@ -132,21 +130,27 @@ func createHealthCheck(probe *corev1.Probe, route53Client *route53.Route53) (str
 	return *result.Location, nil
 }
 
-func getAWSHealthCheckConfig(probe *corev1.Probe) (*route53.HealthCheckConfig, error) {
+func getAWSHealthCheckConfig(probe *corev1.Probe, ip string) (*route53.HealthCheckConfig, error) {
 	if probe == nil || probe.HTTPGet == nil {
 		err := errors.New("invalid health check")
 		log.Error(err, "healh check must be of http get type")
 		return nil, err
 	}
 	return &route53.HealthCheckConfig{
-		EnableSNI:                aws.Bool(true),
+		IPAddress:                aws.String(ip),
+		Disabled:                 aws.Bool(false),
+		Inverted:                 aws.Bool(false),
+		MeasureLatency:           aws.Bool(false),
+		EnableSNI:                aws.Bool(probe.HTTPGet.Scheme == corev1.URISchemeHTTPS),
 		FailureThreshold:         aws.Int64(int64(probe.FailureThreshold)),
 		FullyQualifiedDomainName: &probe.HTTPGet.Host,
 		Port:                     aws.Int64(int64(probe.HTTPGet.Port.IntVal)),
-		HealthThreshold:          aws.Int64(int64(probe.SuccessThreshold)),
-		RequestInterval:          aws.Int64(int64(probe.PeriodSeconds)),
-		ResourcePath:             &probe.HTTPGet.Path,
-		Type:                     aws.String("HTTPS"),
+		//HealthThreshold:          aws.Int64(int64(probe.SuccessThreshold)),
+		RequestInterval: aws.Int64(int64(probe.PeriodSeconds)),
+		ResourcePath:    &probe.HTTPGet.Path,
+		Type:            aws.String(string(probe.HTTPGet.Scheme)),
+		//Type: aws.String("CALCULATED"),
+
 	}, nil
 }
 
@@ -156,73 +160,101 @@ func getAWSUpdateHealthCheckInput(config *route53.HealthCheckConfig) *route53.Up
 		FailureThreshold:         config.FailureThreshold,
 		FullyQualifiedDomainName: config.FullyQualifiedDomainName,
 		Port:                     config.Port,
-		HealthThreshold:          config.HealthThreshold,
-		ResourcePath:             config.ResourcePath,
+		//HealthThreshold:          config.HealthThreshold,
+		ResourcePath: config.ResourcePath,
+		Disabled:     aws.Bool(false),
+		Inverted:     aws.Bool(false),
 	}
 }
 
-func ensureRoute53TrafficPolicy(instance *redhatcopv1alpha1.GlobalDNSRecord, route53Client *route53.Route53, endpointMap map[string]EndpointStatus) error {
-	var currentPolicyOutput *route53.GetTrafficPolicyOutput
-	var err error
-	if instance.Status.ProviderStatus.Route53 != nil && instance.Status.ProviderStatus.Route53.PolicyID != "" {
-		currentPolicyOutput, err = route53Client.GetTrafficPolicy(&route53.GetTrafficPolicyInput{
-			Id: aws.String(instance.Status.ProviderStatus.Route53.PolicyID),
-		})
-		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				switch aerr.Code() {
-				case route53.ErrCodeNoSuchHealthCheck:
-					// we need to create a new traffic policy
-					instance.Status.ProviderStatus.Route53.PolicyID, err = createAWSTrafficPolicy(instance, endpointMap, route53Client)
-					if err != nil {
-						log.Error(err, "unable to create route53 policy")
-						return err
-					}
-					return nil
-				default:
-					log.Error(err, "unable to look up", "policy", instance.Status.ProviderStatus.Route53.PolicyID)
-					return err
-				}
+func ensureRoute53TrafficPolicy(instance *redhatcopv1alpha1.GlobalDNSRecord, route53Client *route53.Route53, endpointMap map[string]EndpointStatus) (string, error) {
+	trafficPolicies, err := route53Client.ListTrafficPolicies(&route53.ListTrafficPoliciesInput{})
+	if err != nil {
+		log.Error(err, "unable to list route53 traffic policies")
+		return "", err
+	}
+	var currentTrafficPolicy *route53.TrafficPolicy
+	for _, trafficPolicySummary := range trafficPolicies.TrafficPolicySummaries {
+		if apis.GetKeyShort(instance) == *trafficPolicySummary.Name {
+			log.V(1).Info("found existing", "traffic policy", *trafficPolicySummary.Name)
+			currentTrafficPolicyOutput, err := route53Client.GetTrafficPolicy(&route53.GetTrafficPolicyInput{
+				Id:      aws.String(*trafficPolicySummary.Id),
+				Version: aws.Int64(1),
+			})
+			if err != nil {
+				log.Error(err, "unable to look up", "policy", apis.GetKeyShort(instance))
+				return "", err
 			}
+			currentTrafficPolicy = currentTrafficPolicyOutput.TrafficPolicy
 		}
-	} else {
-		// we need to create a new traffic policy
-		var err error
-		instance.Status.ProviderStatus.Route53.PolicyID, err = createAWSTrafficPolicy(instance, endpointMap, route53Client)
+	}
+	if currentTrafficPolicy == nil {
+		//we need to create a new traffic policy
+		trafficPolicyID, err := createAWSTrafficPolicy(instance, endpointMap, route53Client)
 		if err != nil {
 			log.Error(err, "unable to create route53 policy")
-			return err
+			return "", err
 		}
-		return nil
+		return trafficPolicyID, nil
 	}
-	//if we are here the traffic policy already exists, we need to check that it's still current
-	newPolicyDocument, err := getAWSTrafficPolicyDocument(instance, endpointMap)
+	//we need to check if current taffic policy is current and if not update it
+
+	newPolicyDocument, err := getAWSTrafficPolicyDocument(instance, endpointMap, route53Client)
 	if err != nil {
 		log.Error(err, "unable to create traffic policy document")
-		return err
+		return "", err
 	}
-	if newPolicyDocument != *currentPolicyOutput.TrafficPolicy.Document {
+	//log.V(1).Info("policy document", "current", *currentTrafficPolicy.Document)
+	//log.V(1).Info("policy document", "new", newPolicyDocument)
+	// TODO rewrite this one
+	same, err := IsSameTrafficPolicyDocument(newPolicyDocument, *currentTrafficPolicy.Document)
+	if err != nil {
+		log.Error(err, "unable to compare traffic policies")
+		return "", err
+	}
+	if !same {
 		// we need to update the health check
-		err = deleteTrafficPolicy(currentPolicyOutput.TrafficPolicy, route53Client)
+		//TODO first delete any existing traffic policy instances
+		err = deleteTrafficPolicy(currentTrafficPolicy, route53Client)
 		if err != nil {
 			log.Error(err, "unable to delete route53 traffic policy")
-			return err
+			return "", err
 		}
-		instance.Status.ProviderStatus.Route53.PolicyID, err = createAWSTrafficPolicy(instance, endpointMap, route53Client)
+		trafficPolicyID, err := createAWSTrafficPolicy(instance, endpointMap, route53Client)
 		if err != nil {
 			log.Error(err, "unable to create route53 policy")
-			return err
+			return "", err
 		}
+		return trafficPolicyID, nil
+
 	}
-	return nil
+	return *currentTrafficPolicy.Id, nil
 }
 
 func deleteTrafficPolicy(trafficPolicy *route53.TrafficPolicy, route53Client *route53.Route53) error {
+	//first we need to delete all the existing traffic policy instances
+	trafficPolicyInstances, err := route53Client.ListTrafficPolicyInstancesByPolicy(&route53.ListTrafficPolicyInstancesByPolicyInput{
+		TrafficPolicyId:      trafficPolicy.Id,
+		TrafficPolicyVersion: aws.Int64(1),
+	})
+	if err != nil {
+		log.Error(err, "unable to list traffic policies instances", "by traffic policy id", trafficPolicy.Id)
+		return err
+	}
+	for _, trafficpolicyinstance := range trafficPolicyInstances.TrafficPolicyInstances {
+		_, err := route53Client.DeleteTrafficPolicyInstance(&route53.DeleteTrafficPolicyInstanceInput{
+			Id: trafficpolicyinstance.Id,
+		})
+		if err != nil {
+			log.Error(err, "unable to delete route53", " traffic policy instance", trafficpolicyinstance.TrafficPolicyId)
+			return err
+		}
+	}
 	deleteTrafficPolicyInput := route53.DeleteTrafficPolicyInput{
 		Id:      trafficPolicy.Id,
 		Version: aws.Int64(1),
 	}
-	_, err := route53Client.DeleteTrafficPolicy(&deleteTrafficPolicyInput)
+	_, err = route53Client.DeleteTrafficPolicy(&deleteTrafficPolicyInput)
 	if err != nil {
 		log.Error(err, "unable to delete traffic policy", "id", trafficPolicy)
 		return err
@@ -231,7 +263,7 @@ func deleteTrafficPolicy(trafficPolicy *route53.TrafficPolicy, route53Client *ro
 }
 
 func createAWSTrafficPolicy(instance *redhatcopv1alpha1.GlobalDNSRecord, endpointMap map[string]EndpointStatus, route53Client *route53.Route53) (string, error) {
-	document, err := getAWSTrafficPolicyDocument(instance, endpointMap)
+	document, err := getAWSTrafficPolicyDocument(instance, endpointMap, route53Client)
 	if err != nil {
 		log.Error(err, "unable to create policy document")
 		return "", err
@@ -240,78 +272,87 @@ func createAWSTrafficPolicy(instance *redhatcopv1alpha1.GlobalDNSRecord, endpoin
 		Document: &document,
 		Name:     aws.String(apis.GetKeyShort(instance)),
 	}
-	result, err := route53.CreateTrafficPolicy(trafficPolicy)
+	result, err := route53Client.CreateTrafficPolicy(&trafficPolicy)
 	if err != nil {
 		log.Error(err, "unable to create", "network policy", trafficPolicy)
 		return "", err
 	}
-	return result.Location, nil
+	log.V(1).Info("created", "traffic policy id", *result.TrafficPolicy.Id)
+	return *result.TrafficPolicy.Id, nil
 }
 
-func ensureRoute53DNSRecord(instance *redhatcopv1alpha1.GlobalDNSRecord, globalzone *redhatcopv1alpha1.GlobalDNSZone, route53Client *route53.Route53) error {
-	var currentPolicyInstanceOutput *route53.GetTrafficPolicyInstanceOutput
-	var err error
-	if instance.Status.ProviderStatus.Route53 != nil && instance.Status.ProviderStatus.Route53.PolicyInstanceID != "" {
-		currentPolicyInstanceOutput, err = route53Client.GetTrafficPolicyInstance(&route53.GetTrafficPolicyInstanceInput{
-			Id: aws.String(instance.Status.ProviderStatus.Route53.PolicyInstanceID),
-		})
-		if err != nil {
-			if aerr, ok := err.(awserr.Error); ok {
-				switch aerr.Code() {
-				case route53.ErrCodeNoSuchHealthCheck:
-					// we need to create a new traffic policy instance
-					instance.Status.ProviderStatus.Route53.PolicyInstanceID, err = createAWSTrafficPolicyInstance(instance, globalzone, route53Client)
-					if err != nil {
-						log.Error(err, "unable to create route53 traffic policy instance")
-						return err
-					}
-					return nil
-				default:
-					log.Error(err, "unable to look up", "traffic policy instance", instance.Status.ProviderStatus.Route53.PolicyInstanceID)
-					return err
-				}
+func ensureRoute53DNSRecord(instance *redhatcopv1alpha1.GlobalDNSRecord, globalzone *redhatcopv1alpha1.GlobalDNSZone, route53Client *route53.Route53, trafficPolicyID string) (string, error) {
+	trafficPolicyInstances, err := route53Client.ListTrafficPolicyInstancesByHostedZone(&route53.ListTrafficPolicyInstancesByHostedZoneInput{
+		HostedZoneId: &globalzone.Spec.Provider.Route53.ZoneID,
+	})
+	if err != nil {
+		log.Error(err, "unable to list traffic policies instances", "in zone id", globalzone.Spec.Provider.Route53.ZoneID)
+		return "", err
+	}
+	var currentTrafficPolicyInstance *route53.TrafficPolicyInstance
+	for _, trafficPolicyInstance := range trafficPolicyInstances.TrafficPolicyInstances {
+		log.V(1).Info("traffic policy instance", "name", *trafficPolicyInstance.Name)
+		if *trafficPolicyInstance.Name == instance.Spec.Name+"." {
+			log.V(1).Info("found ", "traffic policy instance", instance.Spec.Name)
+			currentTrafficPolicyInstanceOutput, err := route53Client.GetTrafficPolicyInstance(&route53.GetTrafficPolicyInstanceInput{
+				Id: trafficPolicyInstance.Id,
+			})
+			if err != nil {
+				log.Error(err, "unable to look up", "traffic policy instance", instance.Spec.Name)
+				return "", err
 			}
+			currentTrafficPolicyInstance = currentTrafficPolicyInstanceOutput.TrafficPolicyInstance
 		}
-	} else {
-		// we need to create a new traffic policy instance
-		var err error
-		instance.Status.ProviderStatus.Route53.PolicyInstanceID, err = createAWSTrafficPolicyInstance(instance, globalzone, route53Client)
+	}
+
+	if currentTrafficPolicyInstance == nil {
+		//we need to create a new traffic policy
+		log.V(1).Info("traffic policy instance was not found, creating a new one...", "traffic policy instance", instance.Spec.Name)
+		policyInstanceID, err := createAWSTrafficPolicyInstance(instance, globalzone, route53Client, trafficPolicyID)
 		if err != nil {
 			log.Error(err, "unable to create route53 traffic policy instance")
-			return err
+			return "", err
 		}
-		return nil
+		return policyInstanceID, nil
 	}
-	//if we are here the traffic policy instance exists, we need to check that it's still current
-	if !IsSame(currentPolicyInstanceOutput, instance, globalzone) {
+	//we need to check if current taffic policy instance is current and if not update it
+	log.V(1).Info("traffic policy instance was found, checking if it is still current", "traffic policy instance", instance.Spec.Name)
+	if !isSameRoute53TrafficPolicyInstance(currentTrafficPolicyInstance, instance, globalzone) {
+		log.V(1).Info("found traffic policy not current, deleting it...", "traffic policy instance", instance.Spec.Name)
 		// we need to update the health check
 		_, err := route53Client.DeleteTrafficPolicyInstance(&route53.DeleteTrafficPolicyInstanceInput{
-			Id: aws.String(instance.Status.ProviderStatus.Route53.PolicyInstanceID),
+			Id: currentTrafficPolicyInstance.Id,
 		})
 		if err != nil {
-			log.Error(err, "unable to delete route53", " traffic policy instance", currentPolicyInstanceOutput)
-			return err
+			log.Error(err, "unable to delete route53", " traffic policy instance", currentTrafficPolicyInstance)
+			return "", err
 		}
-		instance.Status.ProviderStatus.Route53.PolicyInstanceID, err = createAWSTrafficPolicyInstance(instance, globalzone, route53Client)
+		log.V(1).Info("found traffic policy deleted, creating a new one...", "traffic policy instance", instance.Spec.Name)
+		policyInstanceID, err := createAWSTrafficPolicyInstance(instance, globalzone, route53Client, trafficPolicyID)
 		if err != nil {
 			log.Error(err, "unable to create route53 traffic policy instance")
-			return err
+			return "", err
 		}
+		return policyInstanceID, nil
 	}
-	return nil
+	return *currentTrafficPolicyInstance.Id, nil
 }
 
-func IsSame(getTrafficPolicyInstanceOutput *route53.GetTrafficPolicyInstanceOutput, instance *redhatcopv1alpha1.GlobalDNSRecord, globalzone *redhatcopv1alpha1.GlobalDNSZone) bool {
-	if *getTrafficPolicyInstanceOutput.TrafficPolicyInstance.HostedZoneId != globalzone.Spec.Provider.Route53.ZoneID {
+func isSameRoute53TrafficPolicyInstance(trafficPolicyInstance *route53.TrafficPolicyInstance, instance *redhatcopv1alpha1.GlobalDNSRecord, globalzone *redhatcopv1alpha1.GlobalDNSZone) bool {
+	if *trafficPolicyInstance.HostedZoneId != globalzone.Spec.Provider.Route53.ZoneID {
+		log.V(1).Info("zoneid not the same")
 		return false
 	}
-	if *getTrafficPolicyInstanceOutput.TrafficPolicyInstance.Name != instance.Spec.Name {
+	if *trafficPolicyInstance.Name != instance.Spec.Name+"." {
+		log.V(1).Info("name not the same")
 		return false
 	}
-	if *getTrafficPolicyInstanceOutput.TrafficPolicyInstance.TTL != int64(instance.Spec.TTL) {
+	if *trafficPolicyInstance.TTL != int64(instance.Spec.TTL) {
+		log.V(1).Info("ttl not the same")
 		return false
 	}
-	if *getTrafficPolicyInstanceOutput.TrafficPolicyInstance.TrafficPolicyId != instance.Status.ProviderStatus.Route53.PolicyID {
+	if *trafficPolicyInstance.TrafficPolicyId != instance.Status.ProviderStatus.Route53.PolicyID {
+		log.V(1).Info("policyid not the same")
 		return false
 	}
 	return true
@@ -326,12 +367,12 @@ func getAWSUpdateTrafficPolicyInstanceInput(instance *redhatcopv1alpha1.GlobalDN
 	}
 }
 
-func createAWSTrafficPolicyInstance(instance *redhatcopv1alpha1.GlobalDNSRecord, globalzone *redhatcopv1alpha1.GlobalDNSZone, route53Client *route53.Route53) (string, error) {
+func createAWSTrafficPolicyInstance(instance *redhatcopv1alpha1.GlobalDNSRecord, globalzone *redhatcopv1alpha1.GlobalDNSZone, route53Client *route53.Route53, trafficPolicyID string) (string, error) {
 	createTrafficPolicyInstanceInput := &route53.CreateTrafficPolicyInstanceInput{
 		HostedZoneId:         &globalzone.Spec.Provider.Route53.ZoneID,
 		Name:                 &instance.Spec.Name,
 		TTL:                  aws.Int64(int64(instance.Spec.TTL)),
-		TrafficPolicyId:      &instance.Status.ProviderStatus.Route53.PolicyID,
+		TrafficPolicyId:      aws.String(trafficPolicyID),
 		TrafficPolicyVersion: aws.Int64(1),
 	}
 	result, err := route53Client.CreateTrafficPolicyInstance(createTrafficPolicyInstanceInput)
@@ -339,44 +380,177 @@ func createAWSTrafficPolicyInstance(instance *redhatcopv1alpha1.GlobalDNSRecord,
 		log.Error(err, "unable to create", "traffic policy instance", createTrafficPolicyInstanceInput)
 		return "", err
 	}
-	return *result.Location, nil
+	return *result.TrafficPolicyInstance.Id, nil
 }
 
-func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, endpointMap map[string]EndpointStatus) (string, error) {
-	route53Endpoints := map[string]Route53Endpoint{}
-	for _, endpoint := range endpointMap {
-		route53Endpoints[getEndpointKey(endpoint.endpoint)] = Route53Endpoint{
-			Type:   ElasticLoadBalacer,
-			Region: endpoint.infrastructure.Status.PlatformStatus.AWS.Region,
-			Value:  endpoint.service.Status.LoadBalancer.Ingress[0].Hostname,
-		}
+func IsSameTrafficPolicyDocument(left string, right string) (bool, error) {
+	leftTPD := tpdroute53.Route53TrafficPolicyDocument{}
+	rightTPD := tpdroute53.Route53TrafficPolicyDocument{}
+	err := json.Unmarshal([]byte(left), &leftTPD)
+	if err != nil {
+		log.Error(err, "unable to unmarshal", "traffic policy", left)
+		return false, err
+	}
+	err = json.Unmarshal([]byte(right), &rightTPD)
+	if err != nil {
+		log.Error(err, "unable to unmarshal", "traffic policy", left)
+		return false, err
+	}
+	if leftTPD.AWSPolicyFormatVersion != rightTPD.AWSPolicyFormatVersion {
+		return false, nil
+	}
+	if leftTPD.StartEndpoint != rightTPD.StartEndpoint {
+		return false, nil
+	}
+	if leftTPD.StartRule != rightTPD.StartRule {
+		return false, nil
+	}
+	if leftTPD.RecordType != rightTPD.RecordType {
+		return false, nil
+	}
+	if !reflect.DeepEqual(leftTPD.Endpoints, rightTPD.Endpoints) {
+		return false, nil
+	}
+	if !isSameRoute53Rule(leftTPD.Rules["main"], rightTPD.Rules["main"]) {
+		return false, nil
+	}
+	return true, nil
+}
+
+func isSameRoute53Rule(left tpdroute53.Route53Rule, right tpdroute53.Route53Rule) bool {
+	if left.RuleType != right.RuleType {
+		return false
+	}
+	if !reflect.DeepEqual(left.Primary, right.Primary) {
+		return false
+	}
+	if !reflect.DeepEqual(left.Secondary, right.Secondary) {
+		return false
 	}
 
-	route53Rule := Route53Rule{}
+	if !isSameRoute53EndpointRuleReferenceSet(left.Locations, right.Locations) {
+		return false
+	}
+
+	if !isSameRoute53EndpointRuleReferenceSet(left.GeoproximityLocations, right.GeoproximityLocations) {
+		return false
+	}
+
+	if !isSameRoute53EndpointRuleReferenceSet(left.Regions, right.Regions) {
+		return false
+	}
+
+	if !isSameRoute53EndpointRuleReferenceSet(left.Items, right.Items) {
+		return false
+	}
+	return true
+}
+
+func isSameRoute53EndpointRuleReferenceSet(left []tpdroute53.Route53EndpointRuleReference, right []tpdroute53.Route53EndpointRuleReference) bool {
+	return route53endpointrulereferenceset.New(left...).IsEqual(route53endpointrulereferenceset.New(right...))
+}
+
+func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, endpointMap map[string]EndpointStatus, route53Client *route53.Route53) (string, error) {
+	if !reflect.DeepEqual(instance.Spec.HealthCheck, corev1.Probe{}) {
+		if instance.Status.ProviderStatus.Route53.HealthCheckIDs == nil {
+			instance.Status.ProviderStatus.Route53.HealthCheckIDs = map[string]string{}
+		}
+	}
+	route53Endpoints := map[string]tpdroute53.Route53Endpoint{}
 	switch instance.Spec.LoadBalancingPolicy {
 	case redhatcopv1alpha1.Multivalue:
 		{
-			route53Rule.RuleType = Multivalue
-			route53EndpointRuleReferences := []Route53EndpointRuleReference{}
 			for _, endpoint := range endpointMap {
-				route53EndpointRuleReferences = append(route53EndpointRuleReferences, Route53EndpointRuleReference{
-					EndpointReference: getEndpointKey(endpoint.endpoint),
-					HealthCheck:       instance.Status.ProviderStatus.Route53.HealthCheckID,
-				})
+				IPs, err := endpoint.getIPs()
+				if err != nil {
+					log.Error(err, "unable to get IPs for", "endpoint", endpoint)
+					return "", err
+				}
+				for _, IP := range IPs {
+					route53Endpoints[GetEndpointKey(endpoint.endpoint)+IP] = tpdroute53.Route53Endpoint{
+						Type:  tpdroute53.Value,
+						Value: IP,
+					}
+				}
+			}
+			break
+		}
+	case redhatcopv1alpha1.Proximity:
+		{
+			for _, endpoint := range endpointMap {
+				route53Endpoints[GetEndpointKey(endpoint.endpoint)] = tpdroute53.Route53Endpoint{
+					Type:   tpdroute53.ElasticLoadBalacer,
+					Region: endpoint.infrastructure.Status.PlatformStatus.AWS.Region,
+					Value:  endpoint.service.Status.LoadBalancer.Ingress[0].Hostname,
+				}
+			}
+			break
+		}
+	default:
+		{
+			err := errors.New("illegal state")
+			log.Error(err, "illegal routing policy")
+			return "", err
+		}
+	}
+
+	route53Rule := tpdroute53.Route53Rule{}
+	switch instance.Spec.LoadBalancingPolicy {
+	case redhatcopv1alpha1.Multivalue:
+		{
+			route53Rule.RuleType = tpdroute53.Multivalue
+			route53EndpointRuleReferences := []tpdroute53.Route53EndpointRuleReference{}
+			for _, endpoint := range endpointMap {
+				IPs, err := endpoint.getIPs()
+				if err != nil {
+					log.Error(err, "unable to get IPs for", "endpoint", endpoint)
+					return "", err
+				}
+				for _, IP := range IPs {
+					route53EndpointRuleReference := tpdroute53.Route53EndpointRuleReference{
+						EndpointReference: GetEndpointKey(endpoint.endpoint) + IP,
+					}
+					if !reflect.DeepEqual(instance.Spec.HealthCheck, corev1.Probe{}) {
+						healthCheckID, err := ensureRoute53HealthCheck(instance, route53Client, IP)
+						if err != nil {
+							log.Error(err, "unable to create healthcheck for", "endpoint", endpoint)
+							return "", err
+						}
+						route53EndpointRuleReference.HealthCheck = healthCheckID
+						instance.Status.ProviderStatus.Route53.HealthCheckIDs[instance.Spec.Name+"@"+IP] = healthCheckID
+					}
+					route53EndpointRuleReferences = append(route53EndpointRuleReferences, route53EndpointRuleReference)
+				}
 			}
 			route53Rule.Items = route53EndpointRuleReferences
 			break
 		}
 	case redhatcopv1alpha1.Proximity:
 		{
-			route53Rule.RuleType = Geoproximity
-			route53EndpointRuleReferences := []Route53EndpointRuleReference{}
+			route53Rule.RuleType = tpdroute53.Geoproximity
+			route53EndpointRuleReferences := []tpdroute53.Route53EndpointRuleReference{}
 			for _, endpoint := range endpointMap {
-				route53EndpointRuleReferences = append(route53EndpointRuleReferences, Route53EndpointRuleReference{
-					EndpointReference: getEndpointKey(endpoint.endpoint),
-					HealthCheck:       instance.Status.ProviderStatus.Route53.HealthCheckID,
+				route53EndpointRuleReference := tpdroute53.Route53EndpointRuleReference{
+					EndpointReference: GetEndpointKey(endpoint.endpoint),
 					Region:            endpoint.infrastructure.Status.PlatformStatus.AWS.Region,
-				})
+				}
+				if !reflect.DeepEqual(instance.Spec.HealthCheck, corev1.Probe{}) {
+					IPs, err := endpoint.getIPs()
+					IP := IPs[0]
+					if err != nil {
+						log.Error(err, "unable to get IPs for", "endpoint", endpoint)
+						return "", err
+					}
+					healthCheckID, err := ensureRoute53HealthCheck(instance, route53Client, IP)
+					if err != nil {
+						log.Error(err, "unable to create healthcheck for", "endpoint", endpoint)
+						return "", err
+					}
+					route53EndpointRuleReference.HealthCheck = healthCheckID
+					instance.Status.ProviderStatus.Route53.HealthCheckIDs[instance.Spec.Name+"@"+IP] = healthCheckID
+				}
+				route53EndpointRuleReferences = append(route53EndpointRuleReferences, route53EndpointRuleReference)
+
 			}
 			route53Rule.Items = route53EndpointRuleReferences
 			break
@@ -389,12 +563,12 @@ func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, en
 		}
 
 	}
-	route53TrafficPolicyDocument := Route53TrafficPolicyDocument{
+	route53TrafficPolicyDocument := tpdroute53.Route53TrafficPolicyDocument{
 		AWSPolicyFormatVersion: "2015-10-01",
 		RecordType:             "A",
 		Endpoints:              route53Endpoints,
 		StartRule:              "main",
-		Rules: map[string]Route53Rule{
+		Rules: map[string]tpdroute53.Route53Rule{
 			"main": route53Rule,
 		},
 	}
@@ -406,87 +580,55 @@ func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, en
 	return string(document), nil
 }
 
-type Route53TrafficPolicyDocument struct {
-	//"2015-10-01"
-	AWSPolicyFormatVersion string `json:"AWSPolicyFormatVersion"`
-	// "DNS type for all resource record sets created by this traffic policy",
-	RecordType string `json:"RecordType"`
-	//"ID that you assign to an endpoint or rule"
-	StartEndpoint string                     `json:"StartEndpoint,omitempty"`
-	StartRule     string                     `json:"StartRule,omitempty"`
-	Endpoints     map[string]Route53Endpoint `json:"Endpoints,omitempty"`
-	Rules         map[string]Route53Rule     `json:"Rules,omitempty"`
-}
+func (r *ReconcileGlobalDNSRecord) cleanUpRoute53DNSRecord(instance *redhatcopv1alpha1.GlobalDNSRecord, globalzone *redhatcopv1alpha1.GlobalDNSZone) error {
+	route53Client, err := tpdroute53.GetRoute53Client(globalzone, &r.ReconcilerBase)
+	if err != nil {
+		log.Error(err, "unable to get route53 client")
+		return err
+	}
 
-type Route53Endpoint struct {
-	//"Type": value | cloudfront | elastic-load-balancer | s3-website
-	Type Route53EndpointType `json:"Type"`
-	//"Region": "AWS region that you created your Amazon S3 bucket in"
-	Region string `json:"Region"`
-	//"Value": "value applicable to the type of endpoint"
-	Value string `json:"Value"`
-}
+	trafficPolicies, err := route53Client.ListTrafficPolicies(&route53.ListTrafficPoliciesInput{})
+	if err != nil {
+		log.Error(err, "unable to list route53 traffic policies")
+		return err
+	}
+	for _, trafficPolicySummary := range trafficPolicies.TrafficPolicySummaries {
+		if apis.GetKeyShort(instance) == *trafficPolicySummary.Name {
+			log.V(1).Info("found existing", "traffic policy", *trafficPolicySummary.Name)
+			currentTrafficPolicyOutput, err := route53Client.GetTrafficPolicy(&route53.GetTrafficPolicyInput{
+				Id:      aws.String(*trafficPolicySummary.Id),
+				Version: aws.Int64(1),
+			})
+			if err != nil {
+				log.Error(err, "unable to look up", "policy", apis.GetKeyShort(instance))
+				return err
+			}
+			err = deleteTrafficPolicy(currentTrafficPolicyOutput.TrafficPolicy, route53Client)
+			if err != nil {
+				log.Error(err, "unable to delete", "traffic policy", apis.GetKeyShort(instance))
+				return err
+			}
+		}
+	}
 
-type Route53EndpointType string
+	//delete health check
+	healthChecks, err := route53Client.ListHealthChecks(&route53.ListHealthChecksInput{})
+	if err != nil {
+		log.Error(err, "unable to list route53 healthchecks")
+		return err
+	}
+	for _, healthCheck := range healthChecks.HealthChecks {
+		if *healthCheck.HealthCheckConfig.FullyQualifiedDomainName == instance.Spec.HealthCheck.HTTPGet.Host {
+			log.V(1).Info("found existing", "health check for", *healthCheck.HealthCheckConfig.FullyQualifiedDomainName)
+			_, err := route53Client.DeleteHealthCheck(&route53.DeleteHealthCheckInput{
+				HealthCheckId: healthCheck.Id,
+			})
+			if err != nil {
+				log.Error(err, "unable to delete", "health check for ", *healthCheck.HealthCheckConfig.FullyQualifiedDomainName, "id", healthCheck.Id)
+				return err
+			}
+		}
+	}
 
-const (
-	Value              Route53EndpointType = "value"
-	Cloudfront         Route53EndpointType = "cloudfront"
-	ElasticLoadBalacer Route53EndpointType = "elastic-load-balancer"
-	S3Website          Route53EndpointType = "s3-website"
-)
-
-type Route53RuleType string
-
-const (
-	Failover     Route53RuleType = "failover"
-	Geolocation  Route53RuleType = "geo"
-	Geoproximity Route53RuleType = "geoproximity"
-	Latency      Route53RuleType = "latency"
-	Multivalue   Route53RuleType = "multivalue"
-	Weighted     Route53RuleType = "weighted"
-)
-
-type Route53Rule struct {
-	RuleType              Route53RuleType                `json:"RuleType"`
-	Primary               Route53EndpointRuleReference   `json:"Primary,omitempty"`
-	Secondary             Route53EndpointRuleReference   `json:"Secondary,omitempty"`
-	Locations             []Route53EndpointRuleReference `json:"Locations,omitempty"`
-	GeoproximityLocations []Route53EndpointRuleReference `json:"GeoproximityLocations,omitempty"`
-	Regions               []Route53EndpointRuleReference `json:"Regions,omitempty"`
-	Items                 []Route53EndpointRuleReference `json:"Items,omitempty"`
-}
-
-type Route53EndpointRuleReference struct {
-	//"EndpointReference | RuleReference": "ID that you assigned to the rule or endpoint that this rule routes traffic to",
-	EndpointReference string `json:"EndpointReference,omitempty"`
-	RuleReference     string `json:"RuleReference,omitempty"`
-	//"EvaluateTargetHealth": "true" | "false",
-	EvaluateTargetHealth bool `json:"EvaluateTargetHealth"`
-	//"HealthCheck": "optional health check ID"
-	HealthCheck string `json:"HealthCheck,omitempty"`
-
-	//geo specific fields
-	//"IsDefault": "true" | "false",
-	IsDefault bool `json:"IsDefault,omitempty"`
-	//"Continent": "continent name,
-	Continent string `json:"Continent,omitempty"`
-	//"Country": "country name,
-	Country string `json:"Country,omitempty"`
-	//"Subdivision": "subdivision name,
-	Subdivision string `json:"Subdivision,omitempty"`
-
-	//geoproximity & latency specific fields
-	//"Region": "AWS Region",
-	Region string `json:"Region,omitmepty"`
-	//"Latitude": "location south (negative) or north (positive) of the equator, -90 to 90 degrees",
-	Latitude int `json:"Latitude,omitmepty"`
-	//"Longitude": "location west (negative) or east (positive) of the prime meridian, -180 to 180 degrees",
-	Longitude int `json:"Longitude,omitmepty"`
-	//"Bias": "optional value to expand or shrink the geographic region for this rule, -99 to 99",
-	Bias int `json:"Bias,omitempty"`
-
-	//weighted specific fields
-	//"Weight": "value between 0 and 255",
-	Weight int `json:"Weight,omitempty"`
+	return nil
 }

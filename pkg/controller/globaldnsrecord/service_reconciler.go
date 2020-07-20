@@ -28,7 +28,7 @@ type ServiceReconciler struct {
 }
 
 func newServiceReconciler(mgr *RemoteManager, statusChange chan<- event.GenericEvent, endpoint redhatcopv1alpha1.Endpoint, parent *redhatcopv1alpha1.GlobalDNSRecord) (reconcile.Reconciler, error) {
-	controllerName := getEndpointKey(endpoint)
+	controllerName := GetEndpointKey(endpoint)
 
 	serviceReconciler := &ServiceReconciler{
 		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor(controllerName)),
@@ -37,7 +37,7 @@ func newServiceReconciler(mgr *RemoteManager, statusChange chan<- event.GenericE
 		remoteManager:  mgr,
 	}
 
-	controller, err := controller.New(getEndpointKey(endpoint), mgr.Manager, controller.Options{Reconciler: serviceReconciler})
+	controller, err := controller.New(GetEndpointKey(endpoint), mgr.Manager, controller.Options{Reconciler: serviceReconciler})
 	if err != nil {
 		log.Error(err, "unable to create new controller", "with reconciler", serviceReconciler)
 		return nil, err

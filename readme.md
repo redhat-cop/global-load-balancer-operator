@@ -129,6 +129,7 @@ Using the [operator-sdk](https://github.com/operator-framework/operator-sdk), ru
 ```shell
 oc apply -f deploy/crds/redhatcop.redhat.io_globaldnsrecords_crd.yaml
 oc apply -f deploy/crds/redhatcop.redhat.io_globaldnszones_crd.yaml
+oc apply -f https://raw.githubusercontent.com/kubernetes-sigs/external-dns/master/docs/contributing/crd-source/crd-manifest.yaml
 oc new-project global-load-balancer-operator
 oc apply -f deploy/service_account.yaml -n global-load-balancer-operator
 oc apply -f deploy/role.yaml -n global-load-balancer-operator
@@ -149,3 +150,7 @@ TODO:
 6. add ability to autodetect global routes
 7. evaluate using a different implementation of DNSRecord.
 8. test for correct permissions
+9. optimize remote service watchers
+10. add status management for global zone
+11. add ability to auto-create a global zone for aws 
+12. add defaults to healthchecks

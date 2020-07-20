@@ -234,7 +234,7 @@ func (r *ReconcileGlobalDNSRecord) Reconcile(request reconcile.Request) (reconci
 				endpoint: endpoint,
 			}
 		}
-		endpointStatusMap[getEndpointKey(endpoint)] = *endpointStatus
+		endpointStatusMap[GetEndpointKey(endpoint)] = *endpointStatus
 	}
 
 	// verify ability to create desired records, given the combinations of DNS implementation, loadbalancer type, remote cluster infrastructure type, healthchecks
@@ -252,7 +252,7 @@ func (r *ReconcileGlobalDNSRecord) Reconcile(request reconcile.Request) (reconci
 	return r.ManageSuccess(instance, endpointStatusMap)
 }
 
-func getEndpointKey(endpoint redhatcopv1alpha1.Endpoint) string {
+func GetEndpointKey(endpoint redhatcopv1alpha1.Endpoint) string {
 	return endpoint.ClusterName + "#" + endpoint.LoadBalancerServiceRef.Namespace + "/" + endpoint.LoadBalancerServiceRef.Name
 }
 
@@ -268,7 +268,7 @@ func (r *ReconcileGlobalDNSRecord) createManager(endpoint redhatcopv1alpha1.Endp
 		Scheme:             r.GetScheme(),
 	}
 
-	remoteManager, err := NewRemoteManager(restConfig, options, getEndpointKey(endpoint))
+	remoteManager, err := NewRemoteManager(restConfig, options, GetEndpointKey(endpoint))
 	if err != nil {
 		log.Error(err, "unable to create stoppable manager for", "endpoint", endpoint)
 		return nil, err
@@ -289,7 +289,7 @@ func (r *ReconcileGlobalDNSRecord) createRemoteManagers(instance *redhatcopv1alp
 			log.Error(err, "unable to create manager for ", "endpoint", endpoint)
 			return nil, err
 		}
-		managerMap[getEndpointKey(endpoint)] = stoppablemanager
+		managerMap[GetEndpointKey(endpoint)] = stoppablemanager
 	}
 	return managerMap, nil
 }
@@ -301,7 +301,7 @@ func isSameServices(endpointManagerMap EndPointManagers, instance *redhatcopv1al
 		currentRecord.Add(key)
 	}
 	for _, endpoint := range instance.Spec.Endpoints {
-		newRecord.Add(getEndpointKey(endpoint))
+		newRecord.Add(GetEndpointKey(endpoint))
 	}
 	same = currentRecord.IsEqual(newRecord)
 	return same
@@ -317,12 +317,14 @@ func (r *ReconcileGlobalDNSRecord) ManageError(instance *redhatcopv1alpha1.Globa
 		Reason:             astatus.FailedReason,
 		Status:             corev1.ConditionTrue,
 	}
-	status := redhatcopv1alpha1.GlobalDNSRecordStatus{
-		Conditions:               status.NewConditions(condition),
-		MonitoredServiceStatuses: getMonitoredServiceStatuses(instance, r.GetRecorder()),
-		EndpointStatuses:         getEndpointStatuses(instance, endpointStatusMap, r.GetRecorder()),
-	}
-	instance.Status = status
+	// status := redhatcopv1alpha1.GlobalDNSRecordStatus{
+	// 	Conditions:               status.NewConditions(condition),
+	// 	MonitoredServiceStatuses: getMonitoredServiceStatuses(instance, r.GetRecorder()),
+	// 	EndpointStatuses:         getEndpointStatuses(instance, endpointStatusMap, r.GetRecorder()),
+	// }
+	instance.Status.Conditions = status.NewConditions(condition)
+	instance.Status.MonitoredServiceStatuses = getMonitoredServiceStatuses(instance, r.GetRecorder())
+	instance.Status.EndpointStatuses = getEndpointStatuses(instance, endpointStatusMap, r.GetRecorder())
 	log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
 	err := r.GetClient().Status().Update(context.Background(), instance)
 	if err != nil {
@@ -345,12 +347,14 @@ func (r *ReconcileGlobalDNSRecord) ManageSuccess(instance *redhatcopv1alpha1.Glo
 		Reason:             astatus.SuccessfulReason,
 		Status:             corev1.ConditionTrue,
 	}
-	status := redhatcopv1alpha1.GlobalDNSRecordStatus{
-		Conditions:               status.NewConditions(condition),
-		MonitoredServiceStatuses: getMonitoredServiceStatuses(instance, r.GetRecorder()),
-		EndpointStatuses:         getEndpointStatuses(instance, endpointStatusMap, r.GetRecorder()),
-	}
-	instance.Status = status
+	// status := redhatcopv1alpha1.GlobalDNSRecordStatus{
+	// 	Conditions:               status.NewConditions(condition),
+	// 	MonitoredServiceStatuses: getMonitoredServiceStatuses(instance, r.GetRecorder()),
+	// 	EndpointStatuses:         getEndpointStatuses(instance, endpointStatusMap, r.GetRecorder()),
+	// }
+	instance.Status.Conditions = status.NewConditions(condition)
+	instance.Status.MonitoredServiceStatuses = getMonitoredServiceStatuses(instance, r.GetRecorder())
+	instance.Status.EndpointStatuses = getEndpointStatuses(instance, endpointStatusMap, r.GetRecorder())
 	log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
 	log.V(1).Info("about to update status", "instance", instance)
 	err := r.GetClient().Status().Update(context.Background(), instance)
@@ -380,21 +384,34 @@ func (r *ReconcileGlobalDNSRecord) IsInitialized(obj metav1.Object) bool {
 	return isInitialized
 }
 
-func (r *ReconcileGlobalDNSRecord) manageCleanUpLogic(instance *redhatcopv1alpha1.GlobalDNSRecord, globalZone *redhatcopv1alpha1.GlobalDNSZone) error {
+func (r *ReconcileGlobalDNSRecord) manageCleanUpLogic(instance *redhatcopv1alpha1.GlobalDNSRecord, globalzone *redhatcopv1alpha1.GlobalDNSZone) error {
 	// stop managers
 	if endpointManagerMap, ok := TrackedEndpointMap[types.NamespacedName{
 		Name:      instance.Name,
 		Namespace: instance.Namespace,
 	}]; ok {
 		for _, remoteManager := range endpointManagerMap {
-			remoteManager.Stop()
+			if remoteManager.IsStarted() {
+				remoteManager.Stop()
+			}
 		}
 	}
 
 	// provider specific finalizer
 
-	if globalZone.Spec.Provider.ExternalDNS != nil {
+	if globalzone.Spec.Provider.ExternalDNS != nil {
 		//nothing to do here because for the ownership rule, the DNSEndpoint record will be deleted and the external-dns operator will clean up the DNS configuration
+		return nil
+	}
+	if globalzone.Spec.Provider.Route53 != nil {
+		//we need to delete policy instance
+		//health check
+		//policy
+		err := r.cleanUpRoute53DNSRecord(instance, globalzone)
+		if err != nil {
+			log.Error(err, "unable to cleanup route53 dns record", "record", instance)
+			return err
+		}
 		return nil
 	}
 	return errs.New("illegal state")

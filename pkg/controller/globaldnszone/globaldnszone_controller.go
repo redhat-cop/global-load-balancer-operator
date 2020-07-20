@@ -7,6 +7,7 @@ import (
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/service/route53"
 	redhatcopv1alpha1 "github.com/redhat-cop/global-load-balancer-operator/pkg/apis/redhatcop/v1alpha1"
+	tpdroute53 "github.com/redhat-cop/global-load-balancer-operator/pkg/controller/common/route53"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -117,7 +118,7 @@ func (r *ReconcileGlobalDNSZone) IsValid(obj metav1.Object) (bool, error) {
 		}
 		foundProviderDefinition = true
 		// for route53 we just need to verify that the Zone is and that it controls the defined domain
-		route53Client, err := r.getRoute53Client(globalDNSZone)
+		route53Client, err := tpdroute53.GetRoute53Client(globalDNSZone, &r.ReconcilerBase)
 		if err != nil {
 			log.Error(err, "unable to retrieve route53 client for", "globalDNSZone", globalDNSZone)
 			return false, err
