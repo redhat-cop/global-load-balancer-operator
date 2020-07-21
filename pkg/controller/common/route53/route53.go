@@ -1,4 +1,4 @@
-package globaldnszone
+package route53
 
 import (
 	"context"
@@ -9,12 +9,16 @@ import (
 	"github.com/aws/aws-sdk-go/aws/session"
 	"github.com/aws/aws-sdk-go/service/route53"
 	redhatcopv1alpha1 "github.com/redhat-cop/global-load-balancer-operator/pkg/apis/redhatcop/v1alpha1"
+	"github.com/redhat-cop/operator-utils/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/types"
+	logf "sigs.k8s.io/controller-runtime/pkg/log"
 )
 
-func (r *ReconcileGlobalDNSZone) getRoute53Client(instance *redhatcopv1alpha1.GlobalDNSZone) (*route53.Route53, error) {
-	id, key, err := r.getAWSCredentials(instance)
+var log = logf.Log.WithName("common")
+
+func GetRoute53Client(instance *redhatcopv1alpha1.GlobalDNSZone, r *util.ReconcilerBase) (*route53.Route53, error) {
+	id, key, err := getAWSCredentials(instance, r)
 	if err != nil {
 		log.Error(err, "unable to get aws credentials")
 		return nil, err
@@ -24,8 +28,8 @@ func (r *ReconcileGlobalDNSZone) getRoute53Client(instance *redhatcopv1alpha1.Gl
 	return client, nil
 }
 
-func (r *ReconcileGlobalDNSZone) getAWSCredentials(instance *redhatcopv1alpha1.GlobalDNSZone) (id string, key string, err error) {
-	awsCredentialSecret, err := r.getAWSCredentialSecret(instance)
+func getAWSCredentials(instance *redhatcopv1alpha1.GlobalDNSZone, r *util.ReconcilerBase) (id string, key string, err error) {
+	awsCredentialSecret, err := getAWSCredentialSecret(instance, r)
 	if err != nil {
 		log.Error(err, "unable to get credential secret")
 		return "", "", err
@@ -51,7 +55,7 @@ func (r *ReconcileGlobalDNSZone) getAWSCredentials(instance *redhatcopv1alpha1.G
 	return string(awsAccessKeyID), string(awsSecretAccessKey), nil
 }
 
-func (r *ReconcileGlobalDNSZone) getAWSCredentialSecret(instance *redhatcopv1alpha1.GlobalDNSZone) (*corev1.Secret, error) {
+func getAWSCredentialSecret(instance *redhatcopv1alpha1.GlobalDNSZone, r *util.ReconcilerBase) (*corev1.Secret, error) {
 	credentialSecret := &corev1.Secret{}
 	err := r.GetClient().Get(context.TODO(), types.NamespacedName{
 		Name:      instance.Spec.Provider.Route53.CredentialsSecretRef.Name,

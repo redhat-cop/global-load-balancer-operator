@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"net"
+	"sort"
 
 	ocpconfigv1 "github.com/openshift/api/config/v1"
 	astatus "github.com/operator-framework/operator-sdk/pkg/ansible/controller/status"
@@ -30,18 +31,30 @@ type EndpointStatus struct {
 }
 
 func (es *EndpointStatus) getIPs() ([]string, error) {
+	IPs := []string{}
+	var err error
 	switch es.infrastructure.Status.PlatformStatus.Type {
 	case ocpconfigv1.AWSPlatformType:
 		{
 			log.V(1).Info("using getAWSIPs")
-			return es.getAWSIPs()
+			IPs, err = es.getAWSIPs()
+			if err != nil {
+				return []string{}, err
+			}
+			break
 		}
 	default:
 		{
 			log.V(1).Info("using getDefaultIPs")
-			return es.getDefaultIPs()
+			IPs, err = es.getDefaultIPs()
+			if err != nil {
+				return []string{}, err
+			}
+			break
 		}
 	}
+	sort.Strings(IPs)
+	return IPs, nil
 }
 
 func (es *EndpointStatus) getDefaultIPs() ([]string, error) {

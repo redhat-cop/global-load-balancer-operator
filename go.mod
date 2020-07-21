@@ -3,7 +3,7 @@ module github.com/redhat-cop/global-load-balancer-operator
 go 1.13
 
 require (
-	github.com/aws/aws-sdk-go v1.31.4
+	github.com/aws/aws-sdk-go v1.33.7
 	github.com/openshift/api v0.0.0-20200710154525-af4dd20aed23
 	github.com/openshift/cloud-credential-operator v0.0.0-20200710182712-e5d1e9c86fd8
 	github.com/operator-framework/operator-sdk v0.18.1

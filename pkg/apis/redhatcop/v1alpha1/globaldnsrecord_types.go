@@ -50,13 +50,20 @@ type GlobalDNSRecordSpec struct {
 type LoadBalancingPolicy string
 
 const (
-	// RoundRobin means that one random IP is returned among those that are available.
-	RoundRobin LoadBalancingPolicy = "RoundRobin"
-	// Multivalue means that all available IPs are returned.
+	// Multivalue means that all available IPs are returned. If a healthchekc is defined and supported by the selected provider, only the healthy IPs are returned.
 	Multivalue LoadBalancingPolicy = "Multivalue"
-	// Proximity means that the IP that is closest to the source is returned. Typically based on historical latency.
+	// Weighted means that one random IP is returned. If a healthcheck is defined and supported by the selected provider, one random IP is returned among those that are available.
+	Weighted LoadBalancingPolicy = "Weighted"
+	//Geolocation allows to define routing based on the geogrphy of the caller. This requires associating each endpoint with a geography....
+	Geolocation LoadBalancingPolicy = "Geolocation"
+	// Geoproximity means that the IP that is closest (in terms of distance) to the source is returned.
 	// If more than one record qualifies, a random one is returned.
-	Proximity LoadBalancingPolicy = "Proximity"
+	Geoproximity LoadBalancingPolicy = "Geoproximity"
+	// Latency means that the IP that is closest (in terms of measured latency) to the source is returned. Typically based on historical latency.
+	// If more than one record qualifies, a random one is returned.
+	Latency LoadBalancingPolicy = "Latency"
+	// Failover allows you to define a primary and secodary location. It should be used for active/passive scenarios.
+	Failover LoadBalancingPolicy = "Failover"
 )
 
 // Endpoint represents a traffic ingress point to the cluster. Currently only LoadBalancer service is supported.
@@ -100,6 +107,30 @@ type GlobalDNSRecordStatus struct {
 	// +kubebuilder:validation:Optional
 	// +mapType:=granular
 	EndpointStatuses map[string]status.Conditions `json:"endpointStatuses,omitempty"`
+
+	//ProviderStatus contains provider specific status information
+	// +kubebuilder:validation:Optional
+	ProviderStatus ProviderStatus `json:"providerStatus,omitempty"`
+}
+
+//ProviderStatus contains provider specific status information
+// Only one field can be initialized
+type ProviderStatus struct {
+	// +kubebuilder:validation:Optional
+	Route53 *Route53ProviderStatus `json:"route53,omitempty"`
+}
+
+type Route53ProviderStatus struct {
+	//PolicyID represents the route53 routing policy created for this record
+	// +kubebuilder:validation:Optional
+	PolicyID string `json:"policyID,omitempty"`
+	//HealthCheckID represents the route53 healthcheck created for this record
+	// +kubebuilder:validation:Optional
+	// +mapType:=granular
+	HealthCheckIDs map[string]string `json:"healthCheckID,omitempty"`
+	//PolicyInstanceID represents the ID of the DNSRecord
+	// +kubebuilder:validation:Optional
+	PolicyInstanceID string `json:"policyInstanceID,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

@@ -352,6 +352,27 @@ spec:
                   of each of the monitored services in the remote clusters
                 type: object
                 x-kubernetes-map-type: granular
+              providerStatus:
+                description: ProviderStatus contains provider specific status information
+                properties:
+                  route53:
+                    properties:
+                      healthCheckID:
+                        additionalProperties:
+                          type: string
+                        description: HealthCheckID represents the route53 healthcheck
+                          created for this record
+                        type: object
+                        x-kubernetes-map-type: granular
+                      policyID:
+                        description: PolicyID represents the route53 routing policy
+                          created for this record
+                        type: string
+                      policyInstanceID:
+                        description: PolicyInstanceID represents the ID of the DNSRecord
+                        type: string
+                    type: object
+                type: object
             type: object
         type: object
     served: true

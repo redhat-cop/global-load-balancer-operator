@@ -5,6 +5,9 @@
 This will create three ingress controllers and relative routers. They will act as if they were ingress points for three separate clusters
 
 ```shell
+export cluster_base_domain=$(oc get dns cluster -o jsonpath='{.spec.baseDomain}')
+export cluster_zone_id=$(oc get dns cluster -o jsonpath='{.spec.publicZone.id}')
+export global_base_domain=global.${cluster_base_domain#*.}
 for namespace in cluster1 cluster2 cluster3; do
   export namespace
   envsubst < ./docs/scripts/router.yaml | oc apply -f -
@@ -25,6 +28,17 @@ for namespace in cluster1 cluster2 cluster3; do
   oc create secret generic kubeconfig --from-file /tmp/kubeconfig -n ${namespace}
   export ${namespace}_secret_name=kubeconfig
 done
+```
+
+## Deploy an app and a few routes in the namespaces to receive connections
+
+```shell
+helm repo add podinfo https://stefanprodan.github.io/podinfo
+for namespace in cluster1 cluster2 cluster3; do
+  helm upgrade --install --wait frontend --namespace ${namespace} --set replicaCount=2 --set backend=http://backend-podinfo:9898/echo podinfo/podinfo
+  oc expose service frontend-podinfo --name multivalue --hostname multivalue.${global_base_domain} -n ${namespace} -l route-type=global,router=${namespace}
+  oc expose service frontend-podinfo --name multivalue-hc --hostname multivalue-hc.${global_base_domain} -n ${namespace} -l route-type=global,router=${namespace}
+done  
 ```
 
 ## Prepare variables for later
