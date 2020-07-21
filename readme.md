@@ -29,10 +29,10 @@ spec:
 
 Here is a table summarizing the supported providers and their capabilities:
 
-| Provider  | Zone Auto-Configured  | Supports Health Checks  | Supports RoundRobin LB  | Supports Proximity LB  |
-|:--:|:--:|:--:|:---:|:---:|
-| External-dns  | no  | no  | no  | no  |
-| Route53  | yes(**)  | yes(*)  | yes(*)  | yes(*)  |
+| Provider  | Zone Auto-Configured  | Supports Health Checks  | Supports Multivalue LB | Supports Latency LB  | Supports GeoProximity LB  |
+|:--:|:--:|:--:|:---:|:---:|:---:|
+| External-dns  | no  | no  | yes | no  | no  |
+| Route53  | yes(**)  | yes | yes(*)  | yes(*)  | yes(*)  |
 
 (*) only if all controlled clusters run on AWS.
 (**) currently not implemented
@@ -85,6 +85,19 @@ External-dns should be configured to watch for DNSEnpoints at the cluster level 
 Details on configuration can be found at the external-dns git repository.
 The External-dns should be used as a fall back option when other options are not available as it does not support health checks and advanced load balancing policies.
 
+## AWS Route53 provider
+
+AWS Route53 provider uses the Route53 service as a global loadbalancer and offers advanced routing capabilities via [route53 traffic policies](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/traffic-flow.html) (note that traffic policies will trigger an expense).
+The following routing polices are currently supported:
+
+1. [Multivalue](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy.html#routing-policy-multivalue)
+2. [Geoproximity](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy.html#routing-policy-geoproximity)
+3. [Latency](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy.html#routing-policy-latency)
+
+AWS Route53 provider at the moment requires that all the controlled clusters run in AWS.
+
+If health checks are defined, a route53 health check originating from any reason (you have to ensure connectivity) will be created for each of the endpoint. Because the endpoint represent s a shared ELB (shared with other apps, that is) and the health check is app specific, we cannot sue the ELB health check, so the route53 endpoint is created with one of the two IP exposed by the ELB. This is suboptimal, but it works in most situations.
+
 ## Examples
 
 These examples are intended to help you setting up working configuration with each of the providers
@@ -94,7 +107,7 @@ These examples are intended to help you setting up working configuration with ea
 Two approaches for cluster setup are provided
 
 1. [One cluster, three ingress-gateways.](./docs/one-cluster-three-ingress-gateways.md) This approach is intended for development purposes and has the objective to keep resource consumption at the minimum.
-2. Control cluster and three controlled clusters in different regions. This approach represents a more realistic set-up albeit it consumes more resources.
+2. [Control cluster and three controlled clusters in different regions](./docs/three-clusters.md). This approach represents a more realistic set-up albeit it consumes more resources.
 
 You can also set up the cluster on your own, at the end the following conditions must be met:
 
@@ -108,7 +121,7 @@ the following environment variables are initialized for each cluster:
 Here are examples for the supported provider:
 
 1. [Setting up external-dns as provider](./docs/external-dns-provider.md)
-2. Setting up route53 as a provider
+2. [Setting up route53 as a provider](./docs/aws-route53-provider.md)
 
 ## Local Development
 
