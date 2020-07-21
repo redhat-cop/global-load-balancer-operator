@@ -56,3 +56,30 @@ export cluster1_secret_name=$(oc get clusterdeployment cluster1-acm-aws-cluster 
 export cluster2_secret_name=$(oc get clusterdeployment cluster2-acm-aws-cluster -n cluster2 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
 export cluster3_secret_name=$(oc get clusterdeployment cluster3-acm-aws-cluster -n cluster3 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
 ```
+
+## Login to the clusters
+
+```shell
+export cluster_base_domain=$(oc get dns cluster -o jsonpath='{.spec.baseDomain}')
+export cluster_zone_id=$(oc get dns cluster -o jsonpath='{.spec.publicZone.id}')
+export global_base_domain=global.${cluster_base_domain#*.}
+export control_cluster=$(oc config current-context)
+for cluster in cluster1 cluster2 cluster3; do
+  oc config use-context ${control_cluster}
+  password=$(oc get secret $(oc get clusterdeployment ${cluster}-acm-aws-cluster -n ${cluster} -o jsonpath='{.spec.clusterMetadata.adminPasswordSecretRef.name}') -n ${cluster} -o jsonpath='{.data.password}' | base64 -d)
+  url=$(oc get clusterdeployment ${cluster}-acm-aws-cluster -n ${cluster} -o jsonpath='{.status.apiURL}')
+  oc login -u kubeadmin -p ${password} ${url}
+  export cluster_${cluster}=$(oc config current-context)
+  namespace=test-global-loadbalancer-operator
+  helm upgrade --install --wait frontend --create-namespace --namespace ${namespace} --set replicaCount=2 --set backend=http://backend-podinfo:9898/echo podinfo/podinfo
+  oc expose service frontend-podinfo --name multivalue --hostname multivalue.${global_base_domain} -n ${namespace}
+  oc expose service frontend-podinfo --name multivalue-hc --hostname multivalue-hc.${global_base_domain} -n ${namespace}
+  oc expose service frontend-podinfo --name geoproximity-hc --hostname geoproximity-hc.${global_base_domain} -n ${namespace}
+  oc expose service frontend-podinfo --name latency-hc --hostname latency-hc.${global_base_domain} -n ${namespace}
+  oc expose service frontend-podinfo --name failover-hc --hostname failover-hc.${global_base_domain} -n ${namespace}
+  oc expose service frontend-podinfo --name geolocation-hc --hostname geolocation-hc.${global_base_domain} -n ${namespace}
+  oc expose service frontend-podinfo --name weighted-hc --hostname weighted-hc.${global_base_domain} -n ${namespace}
+done
+oc config use-context ${control_cluster}
+```  
+

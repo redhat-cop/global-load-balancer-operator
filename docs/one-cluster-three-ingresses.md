@@ -30,6 +30,17 @@ for namespace in cluster1 cluster2 cluster3; do
 done
 ```
 
+## Deploy an app and a few routes in the namespaces to receive connections
+
+```shell
+helm repo add podinfo https://stefanprodan.github.io/podinfo
+for namespace in cluster1 cluster2 cluster3; do
+  helm upgrade --install --wait frontend --namespace ${namespace} --set replicaCount=2 --set backend=http://backend-podinfo:9898/echo podinfo/podinfo
+  oc expose service frontend-podinfo --name multivalue --hostname multivalue.${global_base_domain} -n ${namespace} -l route-type=global,router=${namespace}
+  oc expose service frontend-podinfo --name multivalue-hc --hostname multivalue-hc.${global_base_domain} -n ${namespace} -l route-type=global,router=${namespace}
+done  
+```
+
 ## Prepare variables for later
 
 ```shell

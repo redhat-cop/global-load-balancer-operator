@@ -48,6 +48,8 @@ envsubst < ./docs/scripts/route53-credentials-request.yaml | oc apply -f - -n ${
 envsubst < ./docs/scripts/route53-dns-zone.yaml | oc apply -f -
 ```
 
+For provider chose
+
 ### Multivalue example
 
 ```shell
@@ -59,5 +61,19 @@ dig multivalue.${global_base_domain}
 
 ```shell
 envsubst < ./docs/scripts/route53-multivalue-global-dns-record-with-healthcheck.yaml | oc apply -f - -n ${namespace}
-dig multivalue.${global_base_domain}
+dig multivalue-hc.${global_base_domain}
+```
+
+### Geoproximity with healthcheck
+
+```shell
+envsubst < ./docs/scripts/route53-geoproximity-global-dns-record-with-healthcheck.yaml | oc apply -f - -n ${namespace}
+dig geoproximity-hc.${global_base_domain}
+```
+
+### Latency with healthcheck
+
+```shell
+envsubst < ./docs/scripts/route53-latency-global-dns-record-with-healthcheck.yaml | oc apply -f - -n ${namespace}
+dig latency-hc.${global_base_domain}
 ```

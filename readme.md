@@ -153,4 +153,6 @@ TODO:
 9. optimize remote service watchers
 10. add status management for global zone
 11. add ability to auto-create a global zone for aws 
-12. add defaults to healthchecks
+12. add defaults to healthcheck probe in CR
+13. add a name tag to the route53 healthcheck
+14. add support for Weighted, Geolocation, Failover route53 load balancing policies.

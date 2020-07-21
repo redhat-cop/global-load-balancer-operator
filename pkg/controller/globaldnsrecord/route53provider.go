@@ -6,6 +6,7 @@ import (
 	"reflect"
 
 	"github.com/aws/aws-sdk-go/aws"
+	"github.com/aws/aws-sdk-go/aws/awserr"
 	"github.com/aws/aws-sdk-go/service/route53"
 	ocpconfigv1 "github.com/openshift/api/config/v1"
 	redhatcopv1alpha1 "github.com/redhat-cop/global-load-balancer-operator/pkg/apis/redhatcop/v1alpha1"
@@ -96,10 +97,11 @@ func ensureRoute53HealthCheck(instance *redhatcopv1alpha1.GlobalDNSRecord, route
 		return "", err
 	}
 	log.V(1).Info("health check was found, checking if it needs update")
-	log.V(1).Info("current", "config", currentHealthCheck.HealthCheckConfig)
-	log.V(1).Info("bew", "config", newHealthCheckConfig)
+	//log.V(1).Info("current", "config", currentHealthCheck.HealthCheckConfig)
+	//log.V(1).Info("new", "config", newHealthCheckConfig)
 	if !reflect.DeepEqual(newHealthCheckConfig, currentHealthCheck.HealthCheckConfig) {
 		// we need to update the health check
+		log.V(1).Info("health check needs update, updating")
 		updateHealthCheckInput := getAWSUpdateHealthCheckInput(newHealthCheckConfig)
 		updateHealthCheckInput.HealthCheckId = currentHealthCheck.Id
 		result, err := route53Client.UpdateHealthCheck(updateHealthCheckInput)
@@ -109,6 +111,7 @@ func ensureRoute53HealthCheck(instance *redhatcopv1alpha1.GlobalDNSRecord, route
 		}
 		return *result.HealthCheck.Id, nil
 	}
+	log.V(1).Info("health does not need update")
 	return *currentHealthCheck.Id, nil
 }
 
@@ -190,6 +193,7 @@ func ensureRoute53TrafficPolicy(instance *redhatcopv1alpha1.GlobalDNSRecord, rou
 	}
 	if currentTrafficPolicy == nil {
 		//we need to create a new traffic policy
+		log.V(1).Info("traffic policy not found creating a new one")
 		trafficPolicyID, err := createAWSTrafficPolicy(instance, endpointMap, route53Client)
 		if err != nil {
 			log.Error(err, "unable to create route53 policy")
@@ -199,6 +203,7 @@ func ensureRoute53TrafficPolicy(instance *redhatcopv1alpha1.GlobalDNSRecord, rou
 	}
 	//we need to check if current taffic policy is current and if not update it
 
+	log.V(1).Info("traffic policy found checking if it needs updating")
 	newPolicyDocument, err := getAWSTrafficPolicyDocument(instance, endpointMap, route53Client)
 	if err != nil {
 		log.Error(err, "unable to create traffic policy document")
@@ -208,6 +213,8 @@ func ensureRoute53TrafficPolicy(instance *redhatcopv1alpha1.GlobalDNSRecord, rou
 	//log.V(1).Info("policy document", "new", newPolicyDocument)
 	// TODO rewrite this one
 	same, err := IsSameTrafficPolicyDocument(newPolicyDocument, *currentTrafficPolicy.Document)
+	//log.V(1).Info("", "isSame", same)
+	//log.V(1).Info("", "reflect", reflect.DeepEqual(newPolicyDocument, *currentTrafficPolicy.Document))
 	if err != nil {
 		log.Error(err, "unable to compare traffic policies")
 		return "", err
@@ -215,6 +222,7 @@ func ensureRoute53TrafficPolicy(instance *redhatcopv1alpha1.GlobalDNSRecord, rou
 	if !same {
 		// we need to update the health check
 		//TODO first delete any existing traffic policy instances
+		log.V(1).Info("traffic needs updating, deleting and recreating")
 		err = deleteTrafficPolicy(currentTrafficPolicy, route53Client)
 		if err != nil {
 			log.Error(err, "unable to delete route53 traffic policy")
@@ -228,6 +236,8 @@ func ensureRoute53TrafficPolicy(instance *redhatcopv1alpha1.GlobalDNSRecord, rou
 		return trafficPolicyID, nil
 
 	}
+
+	log.V(1).Info("traffic does not need updating")
 	return *currentTrafficPolicy.Id, nil
 }
 
@@ -248,6 +258,48 @@ func deleteTrafficPolicy(trafficPolicy *route53.TrafficPolicy, route53Client *ro
 		if err != nil {
 			log.Error(err, "unable to delete route53", " traffic policy instance", trafficpolicyinstance.TrafficPolicyId)
 			return err
+		}
+	}
+	//second we need to delete any associated healthchecks
+	trafficPolicyDocument := &tpdroute53.Route53TrafficPolicyDocument{}
+	err = json.Unmarshal([]byte(*trafficPolicy.Document), trafficPolicyDocument)
+	if err != nil {
+		log.Error(err, "unable to unmarshall traffic policy", "document", *trafficPolicy.Document)
+		return err
+	}
+	endpointRuleRefereces := []tpdroute53.Route53EndpointRuleReference{}
+	endpointRuleRefereces = append(endpointRuleRefereces, trafficPolicyDocument.Rules["main"].Items...)
+	endpointRuleRefereces = append(endpointRuleRefereces, trafficPolicyDocument.Rules["main"].Locations...)
+	endpointRuleRefereces = append(endpointRuleRefereces, trafficPolicyDocument.Rules["main"].Regions...)
+	endpointRuleRefereces = append(endpointRuleRefereces, trafficPolicyDocument.Rules["main"].GeoproximityLocations...)
+	if trafficPolicyDocument.Rules["main"].Primary != nil {
+		endpointRuleRefereces = append(endpointRuleRefereces, *trafficPolicyDocument.Rules["main"].Primary)
+	}
+	if trafficPolicyDocument.Rules["main"].Secondary != nil {
+		endpointRuleRefereces = append(endpointRuleRefereces, *trafficPolicyDocument.Rules["main"].Secondary)
+	}
+
+	for _, endpointRuleReference := range endpointRuleRefereces {
+		if endpointRuleReference.HealthCheck != "" {
+			deleteHealthCheckInput := route53.DeleteHealthCheckInput{
+				HealthCheckId: aws.String(endpointRuleReference.HealthCheck),
+			}
+			_, err := route53Client.DeleteHealthCheck(&deleteHealthCheckInput)
+			if err != nil {
+				if aerr, ok := err.(awserr.Error); ok {
+					switch aerr.Code() {
+					case route53.ErrCodeNoSuchHealthCheck:
+						{
+							continue
+						}
+					default:
+						{
+							log.Error(err, "unable to delete", "healthcheck", endpointRuleReference.HealthCheck)
+							return err
+						}
+					}
+				}
+			}
 		}
 	}
 	deleteTrafficPolicyInput := route53.DeleteTrafficPolicyInput{
@@ -475,21 +527,30 @@ func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, en
 			}
 			break
 		}
-	case redhatcopv1alpha1.Proximity:
+	case redhatcopv1alpha1.Geoproximity:
 		{
 			for _, endpoint := range endpointMap {
 				route53Endpoints[GetEndpointKey(endpoint.endpoint)] = tpdroute53.Route53Endpoint{
-					Type:   tpdroute53.ElasticLoadBalacer,
-					Region: endpoint.infrastructure.Status.PlatformStatus.AWS.Region,
-					Value:  endpoint.service.Status.LoadBalancer.Ingress[0].Hostname,
+					Type:  tpdroute53.ElasticLoadBalacer,
+					Value: endpoint.service.Status.LoadBalancer.Ingress[0].Hostname,
+				}
+			}
+			break
+		}
+	case redhatcopv1alpha1.Latency:
+		{
+			for _, endpoint := range endpointMap {
+				route53Endpoints[GetEndpointKey(endpoint.endpoint)] = tpdroute53.Route53Endpoint{
+					Type:  tpdroute53.ElasticLoadBalacer,
+					Value: endpoint.service.Status.LoadBalancer.Ingress[0].Hostname,
 				}
 			}
 			break
 		}
 	default:
 		{
-			err := errors.New("illegal state")
-			log.Error(err, "illegal routing policy")
+			err := errors.New("illegal state / unsupported")
+			log.Error(err, "illegal routing policy", "policy", instance.Spec.LoadBalancingPolicy)
 			return "", err
 		}
 	}
@@ -525,9 +586,40 @@ func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, en
 			route53Rule.Items = route53EndpointRuleReferences
 			break
 		}
-	case redhatcopv1alpha1.Proximity:
+	case redhatcopv1alpha1.Geoproximity:
 		{
 			route53Rule.RuleType = tpdroute53.Geoproximity
+			route53EndpointRuleReferences := []tpdroute53.Route53EndpointRuleReference{}
+			for _, endpoint := range endpointMap {
+				route53EndpointRuleReference := tpdroute53.Route53EndpointRuleReference{
+					EndpointReference: GetEndpointKey(endpoint.endpoint),
+					Region:            "aws:route53:" + endpoint.infrastructure.Status.PlatformStatus.AWS.Region,
+					Bias:              0,
+				}
+				if !reflect.DeepEqual(instance.Spec.HealthCheck, corev1.Probe{}) {
+					IPs, err := endpoint.getIPs()
+					IP := IPs[0]
+					if err != nil {
+						log.Error(err, "unable to get IPs for", "endpoint", endpoint)
+						return "", err
+					}
+					healthCheckID, err := ensureRoute53HealthCheck(instance, route53Client, IP)
+					if err != nil {
+						log.Error(err, "unable to create healthcheck for", "endpoint", endpoint)
+						return "", err
+					}
+					route53EndpointRuleReference.HealthCheck = healthCheckID
+					instance.Status.ProviderStatus.Route53.HealthCheckIDs[instance.Spec.Name+"@"+IP] = healthCheckID
+				}
+				route53EndpointRuleReferences = append(route53EndpointRuleReferences, route53EndpointRuleReference)
+
+			}
+			route53Rule.GeoproximityLocations = route53EndpointRuleReferences
+			break
+		}
+	case redhatcopv1alpha1.Latency:
+		{
+			route53Rule.RuleType = tpdroute53.Latency
 			route53EndpointRuleReferences := []tpdroute53.Route53EndpointRuleReference{}
 			for _, endpoint := range endpointMap {
 				route53EndpointRuleReference := tpdroute53.Route53EndpointRuleReference{
@@ -550,9 +642,8 @@ func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, en
 					instance.Status.ProviderStatus.Route53.HealthCheckIDs[instance.Spec.Name+"@"+IP] = healthCheckID
 				}
 				route53EndpointRuleReferences = append(route53EndpointRuleReferences, route53EndpointRuleReference)
-
 			}
-			route53Rule.Items = route53EndpointRuleReferences
+			route53Rule.Regions = route53EndpointRuleReferences
 			break
 		}
 	default:
