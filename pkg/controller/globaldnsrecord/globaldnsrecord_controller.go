@@ -8,6 +8,7 @@ import (
 	astatus "github.com/operator-framework/operator-sdk/pkg/ansible/controller/status"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	redhatcopv1alpha1 "github.com/redhat-cop/global-load-balancer-operator/pkg/apis/redhatcop/v1alpha1"
+	"github.com/redhat-cop/global-load-balancer-operator/pkg/controller/common/remotemanager"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/scylladb/go-set/strset"
 	corev1 "k8s.io/api/core/v1"
@@ -104,7 +105,7 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 var _ reconcile.Reconciler = &ReconcileGlobalDNSRecord{}
 
 // this contains a map of endpoint keys and the relative controlling manager
-type EndPointManagers map[string]*RemoteManager
+type EndPointManagers map[string]*remotemanager.RemoteManager
 
 // this containes a map of currently know DNSrecords and their map of endpoint managers
 var TrackedEndpointMap = map[types.NamespacedName]EndPointManagers{}
@@ -256,7 +257,7 @@ func GetEndpointKey(endpoint redhatcopv1alpha1.Endpoint) string {
 	return endpoint.ClusterName + "#" + endpoint.LoadBalancerServiceRef.Namespace + "/" + endpoint.LoadBalancerServiceRef.Name
 }
 
-func (r *ReconcileGlobalDNSRecord) createManager(endpoint redhatcopv1alpha1.Endpoint, instance *redhatcopv1alpha1.GlobalDNSRecord) (*RemoteManager, error) {
+func (r *ReconcileGlobalDNSRecord) createManager(endpoint redhatcopv1alpha1.Endpoint, instance *redhatcopv1alpha1.GlobalDNSRecord) (*remotemanager.RemoteManager, error) {
 	restConfig, err := r.getRestConfig(endpoint)
 	if err != nil {
 		log.Error(err, "unable to create client for", "endpoint", endpoint)
@@ -268,7 +269,7 @@ func (r *ReconcileGlobalDNSRecord) createManager(endpoint redhatcopv1alpha1.Endp
 		Scheme:             r.GetScheme(),
 	}
 
-	remoteManager, err := NewRemoteManager(restConfig, options, GetEndpointKey(endpoint))
+	remoteManager, err := remotemanager.NewRemoteManager(restConfig, options, GetEndpointKey(endpoint))
 	if err != nil {
 		log.Error(err, "unable to create stoppable manager for", "endpoint", endpoint)
 		return nil, err
@@ -281,8 +282,8 @@ func (r *ReconcileGlobalDNSRecord) createManager(endpoint redhatcopv1alpha1.Endp
 	return remoteManager, nil
 }
 
-func (r *ReconcileGlobalDNSRecord) createRemoteManagers(instance *redhatcopv1alpha1.GlobalDNSRecord) (map[string]*RemoteManager, error) {
-	managerMap := map[string]*RemoteManager{}
+func (r *ReconcileGlobalDNSRecord) createRemoteManagers(instance *redhatcopv1alpha1.GlobalDNSRecord) (map[string]*remotemanager.RemoteManager, error) {
+	managerMap := map[string]*remotemanager.RemoteManager{}
 	for _, endpoint := range instance.Spec.Endpoints {
 		stoppablemanager, err := r.createManager(endpoint, instance)
 		if err != nil {
@@ -317,11 +318,6 @@ func (r *ReconcileGlobalDNSRecord) ManageError(instance *redhatcopv1alpha1.Globa
 		Reason:             astatus.FailedReason,
 		Status:             corev1.ConditionTrue,
 	}
-	// status := redhatcopv1alpha1.GlobalDNSRecordStatus{
-	// 	Conditions:               status.NewConditions(condition),
-	// 	MonitoredServiceStatuses: getMonitoredServiceStatuses(instance, r.GetRecorder()),
-	// 	EndpointStatuses:         getEndpointStatuses(instance, endpointStatusMap, r.GetRecorder()),
-	// }
 	instance.Status.Conditions = status.NewConditions(condition)
 	instance.Status.MonitoredServiceStatuses = getMonitoredServiceStatuses(instance, r.GetRecorder())
 	instance.Status.EndpointStatuses = getEndpointStatuses(instance, endpointStatusMap, r.GetRecorder())
@@ -347,11 +343,6 @@ func (r *ReconcileGlobalDNSRecord) ManageSuccess(instance *redhatcopv1alpha1.Glo
 		Reason:             astatus.SuccessfulReason,
 		Status:             corev1.ConditionTrue,
 	}
-	// status := redhatcopv1alpha1.GlobalDNSRecordStatus{
-	// 	Conditions:               status.NewConditions(condition),
-	// 	MonitoredServiceStatuses: getMonitoredServiceStatuses(instance, r.GetRecorder()),
-	// 	EndpointStatuses:         getEndpointStatuses(instance, endpointStatusMap, r.GetRecorder()),
-	// }
 	instance.Status.Conditions = status.NewConditions(condition)
 	instance.Status.MonitoredServiceStatuses = getMonitoredServiceStatuses(instance, r.GetRecorder())
 	instance.Status.EndpointStatuses = getEndpointStatuses(instance, endpointStatusMap, r.GetRecorder())

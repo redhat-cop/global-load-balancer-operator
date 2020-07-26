@@ -159,8 +159,8 @@ TODO:
 3. test cluster unreachable: reconcile cycle should not fail.
 4. <s>manage status & events</s>
 5. <s>manage delete & finalizers</s>
-5. complete AWS provider
-6. add ability to autodetect global routes
+5. <s>complete AWS provider</s>
+6. <s>add ability to autodetect global routes</s>
 7. evaluate using a different implementation of DNSRecord.
 8. test for correct permissions
 9. optimize remote service watchers
