@@ -30,6 +30,11 @@ type GlobalRouteDiscoverySpec struct {
 	// +kubebuilder:default:="Multivalue"
 	DefaultLoadBalancingPolicy LoadBalancingPolicy `json:"defaultLoadBalancingPolicy,omitempty"`
 
+	//Dfeault TTL is the TTL for this dns record
+	// +kubebuilder:validation:Optional
+	// +kubebuilder:default:60
+	DefaultTTL int `json:"defaultTTL,omitempty"`
+
 	//GlobalZoneRef represents the global zone that will be used to host this record
 	// +kubebuilder:validation:Required
 	GlobalZoneRef v1.LocalObjectReference `json:"globalZoneRef"`
@@ -45,6 +50,10 @@ type ClusterReference struct {
 	//a key called "kubeconfig" containing a valid kubeconfig file for connecting to the cluster must exist in this secret.
 	// +kubebuilder:validation:Required
 	CredentialsSecretRef NamespacedName `json:"clusterCredentialRef"`
+}
+
+func (cr *ClusterReference) GetKey() string {
+	return cr.CredentialsSecretRef.Namespace + "/" + cr.CredentialsSecretRef.Name
 }
 
 // GlobalRouteDiscoveryStatus defines the observed state of GlobalRouteDiscovery

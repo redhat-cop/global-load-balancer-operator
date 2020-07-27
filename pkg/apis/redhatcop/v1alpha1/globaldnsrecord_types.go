@@ -34,7 +34,7 @@ type GlobalDNSRecordSpec struct {
 	//Probe is the health check used to probe the health of the applications and decide which IPs to return
 	//Only HttpAction is supported
 	// +kubebuilder:validation:Optional
-	HealthCheck v1.Probe `json:"healthCheck,omitempty"`
+	HealthCheck *v1.Probe `json:"healthCheck,omitempty"`
 
 	// LoadBalancingPolicy describes the policy used to loadbalance the results of the DNS queries.
 	// +kubebuilder:validation:Required

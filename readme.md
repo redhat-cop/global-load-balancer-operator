@@ -29,13 +29,12 @@ spec:
 
 Here is a table summarizing the supported providers and their capabilities:
 
-| Provider  | Zone Auto-Configured  | Supports Health Checks  | Supports Multivalue LB | Supports Latency LB  | Supports GeoProximity LB  |
-|:--:|:--:|:--:|:---:|:---:|:---:|
-| External-dns  | no  | no  | yes | no  | no  |
-| Route53  | yes(**)  | yes | yes(*)  | yes(*)  | yes(*)  |
+| Provider  | Supports Health Checks  | Supports Multivalue LB | Supports Latency LB  | Supports GeoProximity LB  |
+|:--:|:--:|:---:|:---:|:---:|
+| External-dns  | no  | yes | no  | no  |
+| Route53  | yes | yes(*)  | yes(*)  | yes(*)  |
 
 (*) only if all controlled clusters run on AWS.
-(**) currently not implemented
 
 ## GlobalDNSRecord
 
@@ -142,6 +141,7 @@ Using the [operator-sdk](https://github.com/operator-framework/operator-sdk), ru
 ```shell
 oc apply -f deploy/crds/redhatcop.redhat.io_globaldnsrecords_crd.yaml
 oc apply -f deploy/crds/redhatcop.redhat.io_globaldnszones_crd.yaml
+oc apply -f deploy/crds/redhatcop.redhat.io_globalroutediscoveries_crd.yaml
 oc apply -f https://raw.githubusercontent.com/kubernetes-sigs/external-dns/master/docs/contributing/crd-source/crd-manifest.yaml
 oc new-project global-load-balancer-operator
 oc apply -f deploy/service_account.yaml -n global-load-balancer-operator
@@ -164,8 +164,7 @@ TODO:
 7. evaluate using a different implementation of DNSRecord.
 8. test for correct permissions
 9. optimize remote service watchers
-10. add status management for global zone
-11. add ability to auto-create a global zone for aws 
+10. <s>add status management for global zone</s>
 12. add defaults to healthcheck probe in CR
 13. add a name tag to the route53 healthcheck
 14. add support for Weighted, Geolocation, Failover route53 load balancing policies.

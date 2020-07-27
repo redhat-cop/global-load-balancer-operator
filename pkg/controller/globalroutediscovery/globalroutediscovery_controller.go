@@ -3,21 +3,25 @@ package globalroutediscovery
 import (
 	"context"
 	errs "errors"
+	"reflect"
+
+	"strconv"
 
 	routev1 "github.com/openshift/api/route/v1"
 	astatus "github.com/operator-framework/operator-sdk/pkg/ansible/controller/status"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	redhatcopv1alpha1 "github.com/redhat-cop/global-load-balancer-operator/pkg/apis/redhatcop/v1alpha1"
 	"github.com/redhat-cop/global-load-balancer-operator/pkg/controller/common/remotemanager"
-	"github.com/redhat-cop/global-load-balancer-operator/pkg/controller/globalroutediscovery/clusterreferenceset"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
+	"github.com/scylladb/go-set/strset"
 	corev1 "k8s.io/api/core/v1"
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	apierrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
+	"k8s.io/apimachinery/pkg/util/intstr"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
 	"k8s.io/client-go/tools/record"
@@ -27,6 +31,7 @@ import (
 	"sigs.k8s.io/controller-runtime/pkg/handler"
 	logf "sigs.k8s.io/controller-runtime/pkg/log"
 	"sigs.k8s.io/controller-runtime/pkg/manager"
+	"sigs.k8s.io/controller-runtime/pkg/predicate"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 	"sigs.k8s.io/controller-runtime/pkg/source"
 )
@@ -34,6 +39,7 @@ import (
 const controllerName = "globalroutediscovery-controller"
 const loadBalancingPolicyAnnotation = "global-load-balancer-operator.redhat-cop.io/load-balancing-policy"
 const containerProbeAnnotation = "global-load-balancer-operator.redhat-cop.io/container-probe"
+const tTLAnnotation = "global-load-balancer-operator.redhat-cop.io/ttl"
 
 var log = logf.Log.WithName(controllerName)
 
@@ -44,7 +50,8 @@ type ReconcileGlobalRouteDiscovery struct {
 	util.ReconcilerBase
 }
 
-var remoteManagersMap = map[redhatcopv1alpha1.ClusterReference]*remotemanager.RemoteManager{}
+//var remoteManagersMap = sync.Map{}
+var remoteManagersMap = map[string]*remotemanager.RemoteManager{}
 var reconcileEventChannel chan event.GenericEvent = make(chan event.GenericEvent)
 
 /**
@@ -83,7 +90,20 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 		return err
 	}
 
-	//cretae watch to receive events
+	// Watch for changes to primary resource GlobalRouteDiscovery
+	err = c.Watch(&source.Kind{Type: &redhatcopv1alpha1.GlobalDNSRecord{
+		TypeMeta: metav1.TypeMeta{
+			Kind: "GlobalDNSRecord",
+		},
+	}}, &handler.EnqueueRequestForOwner{
+		OwnerType:    &redhatcopv1alpha1.GlobalRouteDiscovery{},
+		IsController: true,
+	}, predicate.GenerationChangedPredicate{})
+	if err != nil {
+		return err
+	}
+
+	//create watch to receive events
 	err = c.Watch(
 		&source.Channel{Source: reconcileEventChannel},
 		&handler.EnqueueRequestForObject{},
@@ -123,12 +143,41 @@ func (r *ReconcileGlobalRouteDiscovery) Reconcile(request reconcile.Request) (re
 		return reconcile.Result{}, err
 	}
 
+	if ok := r.IsInitialized(instance); !ok {
+		err := r.GetClient().Update(context.TODO(), instance)
+		if err != nil {
+			log.Error(err, "unable to update instance", "instance", instance.GetName())
+			return r.ManageError(instance, err)
+		}
+		return reconcile.Result{}, nil
+	}
+
+	if util.IsBeingDeleted(instance) {
+		if !util.HasFinalizer(instance, controllerName) {
+			return reconcile.Result{}, nil
+		}
+		err = r.ensureRemoteManagers()
+		if err != nil {
+			log.Error(err, "unable to delete instance", "instance", instance.GetName())
+			return r.ManageError(instance, err)
+		}
+		util.RemoveFinalizer(instance, controllerName)
+		err = r.GetClient().Update(context.TODO(), instance)
+		if err != nil {
+			log.Error(err, "unable to update instance", "instance", instance.GetName())
+			return r.ManageError(instance, err)
+		}
+		return reconcile.Result{}, nil
+	}
+
 	//ensure remote managers exist for all of the isntances and stop those that should not exist anymore.
 	err = r.ensureRemoteManagers()
 	if err != nil {
 		log.Error(err, "unable to ensure remote manager are correctly configured")
 		return r.ManageError(instance, err)
 	}
+
+	log.V(1).Info("after manager creation")
 
 	clusterClientMap := map[redhatcopv1alpha1.ClusterReference]client.Client{}
 
@@ -138,11 +187,14 @@ func (r *ReconcileGlobalRouteDiscovery) Reconcile(request reconcile.Request) (re
 			log.Error(err, "unable to create rest config", "for cluster", clusterReference)
 			return r.ManageError(instance, err)
 		}
-		client, err := client.New(restConfig, client.Options{})
+		client, err := client.New(restConfig, client.Options{
+			Scheme: r.GetScheme(),
+		})
 		if err != nil {
 			log.Error(err, "unable to create client", "for cluster", clusterReference)
 			return r.ManageError(instance, err)
 		}
+
 		clusterClientMap[clusterReference] = client
 	}
 
@@ -167,7 +219,7 @@ func (r *ReconcileGlobalRouteDiscovery) Reconcile(request reconcile.Request) (re
 				return r.ManageError(instance, err)
 			}
 			if found {
-				routeInfo.ReadinessCheck = *probe
+				routeInfo.ReadinessCheck = probe
 			}
 			service, err := findIngressControllerServiceForRoute(route, clusterClientMap[clusterReference])
 			if err != nil {
@@ -180,6 +232,17 @@ func (r *ReconcileGlobalRouteDiscovery) Reconcile(request reconcile.Request) (re
 				routeInfo.LoadBalancigPolicy = redhatcopv1alpha1.LoadBalancingPolicy(loadBalancingPolicy)
 			} else {
 				routeInfo.LoadBalancigPolicy = instance.Spec.DefaultLoadBalancingPolicy
+			}
+			ttl, ok := route.Annotations[tTLAnnotation]
+			if ok {
+				ttlint, err := strconv.Atoi(ttl)
+				if err != nil {
+					log.Error(err, "unable to convert ttl to int", "ttl", ttl, "for route", route, "for cluster", clusterReference)
+					return r.ManageError(instance, err)
+				}
+				routeInfo.TTL = ttlint
+			} else {
+				routeInfo.TTL = instance.Spec.DefaultTTL
 			}
 			routeInfos = append(routeInfos, routeInfo)
 		}
@@ -198,7 +261,7 @@ func (r *ReconcileGlobalRouteDiscovery) Reconcile(request reconcile.Request) (re
 		routeRouteInfoSMap[apis.GetKeyShort(&routeInfo.Route)] = append(routeRouteInfoSMap[apis.GetKeyShort(&routeInfo.Route)], routeInfo)
 	}
 
-	//cretae or update GlobalDNSRecords
+	//create or update GlobalDNSRecords
 	for name, routeInfos := range routeRouteInfoSMap {
 		globaDNSRecord, err := getGlobalDNSRecord(instance, name, routeInfos)
 		if err != nil {
@@ -212,15 +275,41 @@ func (r *ReconcileGlobalRouteDiscovery) Reconcile(request reconcile.Request) (re
 		}
 	}
 
+	log.V(1).Info("about to update status")
 	return r.ManageSuccess(instance)
 }
 
 func getGlobalDNSRecord(instance *redhatcopv1alpha1.GlobalRouteDiscovery, name string, routeInfos []RouteInfo) (*redhatcopv1alpha1.GlobalDNSRecord, error) {
 	if len(routeInfos) == 0 {
 		err := errs.New("no route info")
-		log.Error(err, "at elast one route info must be passed", "routeInfos", routeInfos)
+		log.Error(err, "at least one route info must be passed", "routeInfos", routeInfos)
+		return nil, err
 	}
+
 	route0 := routeInfos[0]
+	// consistency checks
+	for i, route := range routeInfos {
+		if route.Route.Spec.Host != route0.Route.Spec.Host {
+			err := errs.New("route's hosts must match")
+			log.Error(err, "route's host not matching", "route[0]", route0.Route.Spec.Host, "route["+string(i)+"]", route.Route.Spec.Host)
+			return nil, err
+		}
+		if route.LoadBalancigPolicy != route0.LoadBalancigPolicy {
+			err := errs.New("route's load balancing policy must match")
+			log.Error(err, "route's load balancing policy not matching", "route[0]", route0.LoadBalancigPolicy, "route["+string(i)+"]", route.LoadBalancigPolicy)
+			return nil, err
+		}
+		if route.TTL != route0.TTL {
+			err := errs.New("route's TTLs must match")
+			log.Error(err, "route's TTLs not matching", "route[0]", route0.TTL, "route["+string(i)+"]", route.TTL)
+			return nil, err
+		}
+		if !reflect.DeepEqual(route.ReadinessCheck, route0.ReadinessCheck) {
+			err := errs.New("route's health checks must match")
+			log.Error(err, "route's health checks not matching", "route[0]", route0.ReadinessCheck, "route["+string(i)+"]", route.ReadinessCheck)
+			return nil, err
+		}
+	}
 	globaldnsrecord := &redhatcopv1alpha1.GlobalDNSRecord{
 		TypeMeta: metav1.TypeMeta{
 			APIVersion: "redhatcop.redhat.io/v1alpha1",
@@ -228,13 +317,13 @@ func getGlobalDNSRecord(instance *redhatcopv1alpha1.GlobalRouteDiscovery, name s
 		},
 		ObjectMeta: metav1.ObjectMeta{
 			Namespace: instance.Namespace,
-			Name:      name,
+			Name:      route0.Route.Spec.Host,
 		},
 		Spec: redhatcopv1alpha1.GlobalDNSRecordSpec{
 			Name:                route0.Route.Spec.Host,
 			GlobalZoneRef:       instance.Spec.GlobalZoneRef,
 			LoadBalancingPolicy: route0.LoadBalancigPolicy,
-			HealthCheck:         route0.ReadinessCheck,
+			TTL:                 route0.TTL,
 		},
 	}
 	endpoints := []redhatcopv1alpha1.Endpoint{}
@@ -250,7 +339,46 @@ func getGlobalDNSRecord(instance *redhatcopv1alpha1.GlobalRouteDiscovery, name s
 		endpoints = append(endpoints, endpoint)
 	}
 	globaldnsrecord.Spec.Endpoints = endpoints
+	if route0.ReadinessCheck != nil && route0.ReadinessCheck.HTTPGet != nil {
+		globaldnsrecord.Spec.HealthCheck = getHealthCheck(&route0.Route, route0.ReadinessCheck)
+	}
 	return globaldnsrecord, nil
+}
+
+func getHealthCheck(route *routev1.Route, probe *corev1.Probe) *corev1.Probe {
+	httpHeaders := []corev1.HTTPHeader{}
+	for _, header := range probe.HTTPGet.HTTPHeaders {
+		if header.Name == "host" {
+			continue
+		}
+		httpHeaders = append(httpHeaders, header)
+	}
+	var scheme corev1.URIScheme
+	var port int
+	if route.Spec.TLS != nil {
+		scheme = corev1.URISchemeHTTPS
+		port = 443
+	} else {
+		scheme = corev1.URISchemeHTTP
+		port = 80
+	}
+	httpget := &corev1.HTTPGetAction{
+		Host:        route.Spec.Host,
+		HTTPHeaders: httpHeaders,
+		Path:        probe.HTTPGet.Path,
+		Scheme:      scheme,
+		Port:        intstr.FromInt(port),
+	}
+	return &corev1.Probe{
+		FailureThreshold:    probe.FailureThreshold,
+		InitialDelaySeconds: probe.InitialDelaySeconds,
+		SuccessThreshold:    probe.SuccessThreshold,
+		PeriodSeconds:       probe.PeriodSeconds,
+		TimeoutSeconds:      probe.TimeoutSeconds,
+		Handler: corev1.Handler{
+			HTTPGet: httpget,
+		},
+	}
 }
 
 func findIngressControllerServiceForRoute(route routev1.Route, c client.Client) (*corev1.Service, error) {
@@ -345,44 +473,52 @@ func findProbeForRoute(route routev1.Route, c client.Client) (*corev1.Probe, boo
 type RouteInfo struct {
 	Route              routev1.Route
 	Service            corev1.Service
-	ReadinessCheck     corev1.Probe
+	ReadinessCheck     *corev1.Probe
 	LoadBalancigPolicy redhatcopv1alpha1.LoadBalancingPolicy
 	ClusterReference   redhatcopv1alpha1.ClusterReference
+	TTL                int
 }
 
 func (r *ReconcileGlobalRouteDiscovery) ensureRemoteManagers() error {
 	instances := &redhatcopv1alpha1.GlobalRouteDiscoveryList{}
 	err := r.GetClient().List(context.TODO(), instances, &client.ListOptions{})
 	if err != nil {
-		log.Error(err, "inable to list GlobalRouteDiscovery")
+		log.Error(err, "unable to list GlobalRouteDiscovery")
 		return err
 	}
-	neededClusterReferenceSet := clusterreferenceset.New()
+	neededClusterMap := map[string]redhatcopv1alpha1.ClusterReference{}
+	neededClusterReferenceSet := strset.New()
 	for _, instance := range instances.Items {
-		for _, cluster := range instance.Spec.Clusters {
-			neededClusterReferenceSet.Add(cluster)
+		if !util.IsBeingDeleted(&instance) {
+			for _, cluster := range instance.Spec.Clusters {
+				neededClusterReferenceSet.Add(cluster.GetKey())
+				neededClusterMap[cluster.GetKey()] = cluster
+			}
 		}
 	}
 
-	currentClusterReferenceSet := clusterreferenceset.New()
+	currentClusterReferenceSet := strset.New()
 	for cluster := range remoteManagersMap {
 		currentClusterReferenceSet.Add(cluster)
 	}
 
-	toBeAdded := clusterreferenceset.Difference(currentClusterReferenceSet, currentClusterReferenceSet)
-	tobeRemoved := clusterreferenceset.Difference(currentClusterReferenceSet, currentClusterReferenceSet)
+	toBeAdded := strset.Difference(neededClusterReferenceSet, currentClusterReferenceSet)
+	toBeRemoved := strset.Difference(currentClusterReferenceSet, neededClusterReferenceSet)
 
-	for _, cluster := range tobeRemoved.List() {
+	log.V(1).Info("to be added", "remote managers", toBeAdded)
+	log.V(1).Info("to be removed", "remote managers", toBeRemoved)
+
+	for _, cluster := range toBeRemoved.List() {
+		defer delete(remoteManagersMap, cluster)
 		remoteManager, ok := remoteManagersMap[cluster]
 		if !ok {
 			continue
 		}
 		remoteManager.Stop()
-		delete(remoteManagersMap, cluster)
 	}
 
 	for _, cluster := range toBeAdded.List() {
-		remoteManager, err := r.createRemoteManager(cluster)
+		remoteManager, err := r.createRemoteManager(neededClusterMap[cluster])
 		if err != nil {
 			log.Error(err, "unable to create remote manager", "for cluster", cluster)
 			return err
@@ -390,6 +526,7 @@ func (r *ReconcileGlobalRouteDiscovery) ensureRemoteManagers() error {
 		remoteManagersMap[cluster] = remoteManager
 		remoteManager.Start()
 	}
+	log.V(1).Info("remote manager map", "size", len(remoteManagersMap))
 	return nil
 }
 
@@ -454,6 +591,7 @@ func (r *ReconcileGlobalRouteDiscovery) getRestConfig(cluster redhatcopv1alpha1.
 
 //ManageError manage error sets an error status in the CR and fires an event, finally it returns the error so the operator can re-attempt
 func (r *ReconcileGlobalRouteDiscovery) ManageError(instance *redhatcopv1alpha1.GlobalRouteDiscovery, issue error) (reconcile.Result, error) {
+	log.V(1).Info("manage error called")
 	r.GetRecorder().Event(instance, "Warning", "ProcessingError", issue.Error())
 	condition := status.Condition{
 		Type:               "ReconcileError",
@@ -463,6 +601,7 @@ func (r *ReconcileGlobalRouteDiscovery) ManageError(instance *redhatcopv1alpha1.
 		Status:             corev1.ConditionTrue,
 	}
 	instance.Status.Conditions = status.NewConditions(condition)
+	log.V(1).Info("getting cluster referece statuses")
 	instance.Status.ClusterReferenceStatuses = getClusterReferenceStatuses(instance, r.GetRecorder())
 	log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
 	err := r.GetClient().Status().Update(context.Background(), instance)
@@ -478,21 +617,27 @@ func (r *ReconcileGlobalRouteDiscovery) ManageError(instance *redhatcopv1alpha1.
 }
 
 func getClusterReferenceStatuses(instance *redhatcopv1alpha1.GlobalRouteDiscovery, recorder record.EventRecorder) map[string]status.Conditions {
+	log.V(1).Info("entering getClusterReferenceStatuses")
 	conditions := map[string]status.Conditions{}
+	log.V(1).Info("remoteManagersMap", "len", len(remoteManagersMap))
 	for _, clusterReference := range instance.Spec.Clusters {
-		remoteManager, ok := remoteManagersMap[clusterReference]
+		log.V(1).Info("examining", "cluster", clusterReference)
+		remoteManager, ok := remoteManagersMap[clusterReference.GetKey()]
 		if ok {
+			log.V(1).Info("found", "remote manager", remoteManager, "status", remoteManager.GetStatus())
 			conditions[remoteManager.GetKey()] = remoteManager.GetStatus()
 			if conditions[remoteManager.GetKey()].GetCondition("ReconcileError") != nil && conditions[remoteManager.GetKey()].GetCondition("ReconcileError").Status == v1.ConditionTrue {
 				recorder.Event(instance, "Warning", "ProcessingError", conditions[remoteManager.GetKey()].GetCondition("ReconcileError").Message)
 			}
 		}
 	}
+	log.V(1).Info("retrieved statuses", "conditions", conditions)
 	return conditions
 }
 
 // ManageSuccess will update the status of the CR and return a successful reconcile result
 func (r *ReconcileGlobalRouteDiscovery) ManageSuccess(instance *redhatcopv1alpha1.GlobalRouteDiscovery) (reconcile.Result, error) {
+	log.V(1).Info("manage success called")
 	condition := status.Condition{
 		Type:               "ReconcileSuccess",
 		LastTransitionTime: metav1.Now(),
@@ -501,6 +646,7 @@ func (r *ReconcileGlobalRouteDiscovery) ManageSuccess(instance *redhatcopv1alpha
 		Status:             corev1.ConditionTrue,
 	}
 	instance.Status.Conditions = status.NewConditions(condition)
+	log.V(1).Info("getting cluster reference statuses")
 	instance.Status.ClusterReferenceStatuses = getClusterReferenceStatuses(instance, r.GetRecorder())
 	log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
 	log.V(1).Info("about to update status", "instance", instance)
@@ -514,4 +660,19 @@ func (r *ReconcileGlobalRouteDiscovery) ManageSuccess(instance *redhatcopv1alpha
 		return reconcile.Result{}, err
 	}
 	return reconcile.Result{}, nil
+}
+
+//IsInitialized initislizes the instance, currently is simply adds a finalizer.
+func (r *ReconcileGlobalRouteDiscovery) IsInitialized(obj metav1.Object) bool {
+	isInitialized := true
+	globalRouteDiscovery, ok := obj.(*redhatcopv1alpha1.GlobalRouteDiscovery)
+	if !ok {
+		log.Error(errs.New("unable to convert to egressIPAM"), "unable to convert to egressIPAM")
+		return false
+	}
+	if !util.HasFinalizer(globalRouteDiscovery, controllerName) {
+		util.AddFinalizer(globalRouteDiscovery, controllerName)
+		isInitialized = false
+	}
+	return isInitialized
 }

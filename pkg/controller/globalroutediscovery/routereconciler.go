@@ -36,7 +36,7 @@ type RouteReconciler struct {
 	remoteManager *remotemanager.RemoteManager
 }
 
-func (r *ReconcileGlobalRouteDiscovery) newRouteReconciler(mgr *remotemanager.RemoteManager, reconcileEventChannel chan event.GenericEvent, cluster redhatcopv1alpha1.ClusterReference, parentClient client.Client) (*RouteReconciler, error) {
+func (r *ReconcileGlobalRouteDiscovery) newRouteReconciler(mgr *remotemanager.RemoteManager, reconcileEventChannel chan<- event.GenericEvent, cluster redhatcopv1alpha1.ClusterReference, parentClient client.Client) (*RouteReconciler, error) {
 
 	controllerName := cluster.ClusterName
 
@@ -124,7 +124,7 @@ func (r *ReconcileGlobalRouteDiscovery) newRouteReconciler(mgr *remotemanager.Re
 
 func (r *RouteReconciler) Reconcile(request reconcile.Request) (reconcile.Result, error) {
 	reqLogger := log.WithValues("Request.Namespace", request.Namespace, "Request.Name", request.Name)
-	reqLogger.Info("Reconciling GlobalRouteDiscovery")
+	reqLogger.Info("Reconciling Route ", "for cluster", r.remoteManager.GetKey())
 
 	// Fetch the GlobalRouteDiscovery instance
 	instance := &routev1.Route{}
@@ -153,6 +153,7 @@ func (r *RouteReconciler) Reconcile(request reconcile.Request) (reconcile.Result
 			return r.manageStatus(err)
 		}
 		if labelSelector.Matches(labels.Set(instance.Labels)) {
+			log.V(1).Info("route match found", "route", instance, "global route discovery", globglobalRouteDiscovery)
 			r.statusChange <- event.GenericEvent{
 				Meta:   &globglobalRouteDiscovery.ObjectMeta,
 				Object: &globglobalRouteDiscovery,

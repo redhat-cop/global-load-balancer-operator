@@ -74,7 +74,7 @@ func ensureRoute53HealthCheck(instance *redhatcopv1alpha1.GlobalDNSRecord, route
 	}
 	var currentHealthCheck *route53.HealthCheck
 	for _, healthCheck := range healthChecks.HealthChecks {
-		if *healthCheck.HealthCheckConfig.FullyQualifiedDomainName == instance.Spec.HealthCheck.HTTPGet.Host && *healthCheck.HealthCheckConfig.IPAddress == ip {
+		if instance.Spec.HealthCheck.HTTPGet != nil && healthCheck.HealthCheckConfig.FullyQualifiedDomainName != nil && *healthCheck.HealthCheckConfig.FullyQualifiedDomainName == instance.Spec.HealthCheck.HTTPGet.Host && *healthCheck.HealthCheckConfig.IPAddress == ip {
 			log.V(1).Info("found existing", "health check for", *healthCheck.HealthCheckConfig.FullyQualifiedDomainName)
 			currentHealthCheck = healthCheck
 		}
@@ -82,7 +82,7 @@ func ensureRoute53HealthCheck(instance *redhatcopv1alpha1.GlobalDNSRecord, route
 
 	if currentHealthCheck == nil {
 		//we need to create a new healthcheck
-		healthCheckID, err := createHealthCheck(&instance.Spec.HealthCheck, route53Client, ip)
+		healthCheckID, err := createHealthCheck(instance.Spec.HealthCheck, route53Client, ip)
 		if err != nil {
 			log.Error(err, "unable to create route53 healthcheck", "for probe", instance.Spec.HealthCheck)
 			return "", err
@@ -91,7 +91,7 @@ func ensureRoute53HealthCheck(instance *redhatcopv1alpha1.GlobalDNSRecord, route
 	}
 
 	//if we are here the helth check already exists, we need to check that it's still current
-	newHealthCheckConfig, err := getAWSHealthCheckConfig(&instance.Spec.HealthCheck, ip)
+	newHealthCheckConfig, err := getAWSHealthCheckConfig(instance.Spec.HealthCheck, ip)
 	if err != nil {
 		log.Error(err, "unable to convert probe to aws health check", "probe", instance.Spec.HealthCheck)
 		return "", err
@@ -571,7 +571,7 @@ func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, en
 					route53EndpointRuleReference := tpdroute53.Route53EndpointRuleReference{
 						EndpointReference: GetEndpointKey(endpoint.endpoint) + IP,
 					}
-					if !reflect.DeepEqual(instance.Spec.HealthCheck, corev1.Probe{}) {
+					if instance.Spec.HealthCheck != nil {
 						healthCheckID, err := ensureRoute53HealthCheck(instance, route53Client, IP)
 						if err != nil {
 							log.Error(err, "unable to create healthcheck for", "endpoint", endpoint)
@@ -596,7 +596,7 @@ func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, en
 					Region:            "aws:route53:" + endpoint.infrastructure.Status.PlatformStatus.AWS.Region,
 					Bias:              0,
 				}
-				if !reflect.DeepEqual(instance.Spec.HealthCheck, corev1.Probe{}) {
+				if instance.Spec.HealthCheck != nil {
 					IPs, err := endpoint.getIPs()
 					IP := IPs[0]
 					if err != nil {
@@ -626,7 +626,7 @@ func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, en
 					EndpointReference: GetEndpointKey(endpoint.endpoint),
 					Region:            endpoint.infrastructure.Status.PlatformStatus.AWS.Region,
 				}
-				if !reflect.DeepEqual(instance.Spec.HealthCheck, corev1.Probe{}) {
+				if instance.Spec.HealthCheck != nil {
 					IPs, err := endpoint.getIPs()
 					IP := IPs[0]
 					if err != nil {
@@ -708,15 +708,17 @@ func (r *ReconcileGlobalDNSRecord) cleanUpRoute53DNSRecord(instance *redhatcopv1
 		log.Error(err, "unable to list route53 healthchecks")
 		return err
 	}
-	for _, healthCheck := range healthChecks.HealthChecks {
-		if *healthCheck.HealthCheckConfig.FullyQualifiedDomainName == instance.Spec.HealthCheck.HTTPGet.Host {
-			log.V(1).Info("found existing", "health check for", *healthCheck.HealthCheckConfig.FullyQualifiedDomainName)
-			_, err := route53Client.DeleteHealthCheck(&route53.DeleteHealthCheckInput{
-				HealthCheckId: healthCheck.Id,
-			})
-			if err != nil {
-				log.Error(err, "unable to delete", "health check for ", *healthCheck.HealthCheckConfig.FullyQualifiedDomainName, "id", healthCheck.Id)
-				return err
+	if instance.Spec.HealthCheck != nil && instance.Spec.HealthCheck.HTTPGet != nil {
+		for _, healthCheck := range healthChecks.HealthChecks {
+			if healthCheck.HealthCheckConfig.FullyQualifiedDomainName != nil && *healthCheck.HealthCheckConfig.FullyQualifiedDomainName == instance.Spec.HealthCheck.HTTPGet.Host {
+				log.V(1).Info("found existing", "health check for", *healthCheck.HealthCheckConfig.FullyQualifiedDomainName)
+				_, err := route53Client.DeleteHealthCheck(&route53.DeleteHealthCheckInput{
+					HealthCheckId: healthCheck.Id,
+				})
+				if err != nil {
+					log.Error(err, "unable to delete", "health check for ", *healthCheck.HealthCheckConfig.FullyQualifiedDomainName, "id", healthCheck.Id)
+					return err
+				}
 			}
 		}
 	}
