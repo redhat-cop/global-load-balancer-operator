@@ -97,6 +97,50 @@ AWS Route53 provider at the moment requires that all the controlled clusters run
 
 If health checks are defined, a route53 health check originating from any reason (you have to ensure connectivity) will be created for each of the endpoint. Because the endpoint represent s a shared ELB (shared with other apps, that is) and the health check is app specific, we cannot sue the ELB health check, so the route53 endpoint is created with one of the two IP exposed by the ELB. This is suboptimal, but it works in most situations.
 
+## Global Route Auto Discovery
+
+The aboev examples showed how to create global DNS records. This can be good in some situations, but most of the times in an openshift deployment global DNS records will point to routes that are intended to be global.
+The global-load-balancer operator can auto-discover these routes and automatically create the corresponding `GloablDNSRecord`. The `GlobalRouteDiscovery` CRD is used to configure the discovery process, here is an example:
+
+```yaml
+apiVersion: redhatcop.redhat.io/v1alpha1
+kind: GlobalRouteDiscovery
+metadata:
+  name: route53-globalroutediscovery
+spec:
+  clusters:
+  - clusterName: cluster1
+    clusterCredentialRef:
+      name: ${cluster1_secret_name}
+      namespace: cluster1
+...
+  routeSelector:
+    matchLabels:
+      route-type: global
+  defaultLoadBalancingPolicy: Multivalue
+  defaultTTL: 30 
+  globalZoneRef:
+    name: route53-global-dns-zone
+```
+
+This global discovery route will discover routes in the provided list of cluster. Only the routes that match the route selector will be considered global. 
+The default load balancing policy and default TTL can be expressed in the `GlobalRouteDiscovery` CR. However with the following annotations, it's possible to configure route-specific values:
+
+* `global-load-balancer-operator.redhat-cop.io/load-balancing-policy` to set the load balancing policy
+* `global-load-balancer-operator.redhat-cop.io/ttl` to set the TTL
+
+The globalZoneRef refers to the global zone to be used for the created `GlobalDNSRecords`.
+
+Health checks will also be automatically discovered. If the pods behind the route expose a readiness check of httpGet kind, that configuration will be used to create the GlobalDNSRecord health check.
+When more than one container is present in the pod, by default the first container will be examined for health check. This behavior can be overridden with the this annotation on the route: `global-load-balancer-operator.redhat-cop.io/container-probe` where the value will container the name of the container with teh correct readiness probe.
+
+If routes with the same namespace and name exists in multiple cluster, the following conditions must be met:
+
+* all host names must be the same
+* all load balancing policy must be the same
+* all TTLs must be the same
+* all discovered readiness checks must be the same
+
 ## Examples
 
 These examples are intended to help you setting up working configuration with each of the providers
