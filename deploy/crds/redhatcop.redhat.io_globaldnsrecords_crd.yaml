@@ -41,7 +41,7 @@ spec:
                     clusterCredentialRef:
                       description: CredentialsSecretRef is a reference to a secret
                         containing the credentials to access the cluster a key called
-                        "kubeconfig" containf a valid kubeconfig file for connecting
+                        "kubeconfig" containing a valid kubeconfig file for connecting
                         to the cluster must exist in this secret.
                       properties:
                         name:
@@ -201,7 +201,14 @@ spec:
                 type: object
               loadBalancingPolicy:
                 description: LoadBalancingPolicy describes the policy used to loadbalance
-                  the results of the DNS queries. kubebuilder:validation:Enum:={"RoundRobin","Multivalue","Proximity"}
+                  the results of the DNS queries.
+                enum:
+                - Weighted
+                - Multivalue
+                - Geolocation
+                - Geoproximity
+                - Latency
+                - Failover
                 type: string
               name:
                 description: Name is the fqdn that will be used for this record.

@@ -1,0 +1,10 @@
+httpGet:
+  path: /readyz
+  port: 9898
+  scheme: HTTP
+  host: frontend-podinfo
+  httpHeaders:
+    - name: host
+      value: frontend-podinfo
+    - name: ciao
+      value: hello  

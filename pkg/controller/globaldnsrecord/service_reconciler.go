@@ -6,6 +6,7 @@ import (
 	astatus "github.com/operator-framework/operator-sdk/pkg/ansible/controller/status"
 	"github.com/operator-framework/operator-sdk/pkg/status"
 	redhatcopv1alpha1 "github.com/redhat-cop/global-load-balancer-operator/pkg/apis/redhatcop/v1alpha1"
+	"github.com/redhat-cop/global-load-balancer-operator/pkg/controller/common/remotemanager"
 	"github.com/redhat-cop/operator-utils/pkg/util"
 	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -24,10 +25,10 @@ type ServiceReconciler struct {
 	util.ReconcilerBase
 	statusChange  chan<- event.GenericEvent
 	parent        *redhatcopv1alpha1.GlobalDNSRecord
-	remoteManager *RemoteManager
+	remoteManager *remotemanager.RemoteManager
 }
 
-func newServiceReconciler(mgr *RemoteManager, statusChange chan<- event.GenericEvent, endpoint redhatcopv1alpha1.Endpoint, parent *redhatcopv1alpha1.GlobalDNSRecord) (reconcile.Reconciler, error) {
+func newServiceReconciler(mgr *remotemanager.RemoteManager, statusChange chan<- event.GenericEvent, endpoint redhatcopv1alpha1.Endpoint, parent *redhatcopv1alpha1.GlobalDNSRecord) (reconcile.Reconciler, error) {
 	controllerName := GetEndpointKey(endpoint)
 
 	serviceReconciler := &ServiceReconciler{
@@ -76,7 +77,7 @@ func (r *ServiceReconciler) Reconcile(request reconcile.Request) (reconcile.Resu
 				Reason:             astatus.FailedReason,
 				Status:             corev1.ConditionTrue,
 			}
-			r.remoteManager.setStatus(status.NewConditions(condition))
+			r.remoteManager.SetStatus(status.NewConditions(condition))
 			r.statusChange <- event.GenericEvent{
 				Meta:   &r.parent.ObjectMeta,
 				Object: r.parent,
@@ -84,29 +85,36 @@ func (r *ServiceReconciler) Reconcile(request reconcile.Request) (reconcile.Resu
 			return reconcile.Result{}, nil
 		}
 		// Error reading the object - requeue the request.
-		condition := status.Condition{
+		return r.manageStatus(err)
+	}
+	return r.manageStatus(nil)
+}
+
+func (r *ServiceReconciler) manageStatus(err error) (reconcile.Result, error) {
+	var condition status.Condition
+	if err == nil {
+		condition = status.Condition{
+			Type:               "ReconcileSuccess",
+			LastTransitionTime: metav1.Now(),
+			Message:            astatus.SuccessfulMessage,
+			Reason:             astatus.SuccessfulReason,
+			Status:             corev1.ConditionTrue,
+		}
+	} else {
+		condition = status.Condition{
 			Type:               "ReconcileError",
 			LastTransitionTime: metav1.Now(),
 			Message:            err.Error(),
 			Reason:             astatus.FailedReason,
 			Status:             corev1.ConditionTrue,
 		}
-		r.remoteManager.setStatus(status.NewConditions(condition))
-		return reconcile.Result{}, err
 	}
+	r.remoteManager.SetStatus(status.NewConditions(condition))
 	r.statusChange <- event.GenericEvent{
 		Meta:   &r.parent.ObjectMeta,
 		Object: r.parent,
 	}
-	condition := status.Condition{
-		Type:               "ReconcileSuccess",
-		LastTransitionTime: metav1.Now(),
-		Message:            astatus.SuccessfulMessage,
-		Reason:             astatus.SuccessfulReason,
-		Status:             corev1.ConditionTrue,
-	}
-	r.remoteManager.setStatus(status.NewConditions(condition))
-	return reconcile.Result{}, nil
+	return reconcile.Result{}, err
 }
 
 type matchService struct {

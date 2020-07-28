@@ -29,13 +29,12 @@ spec:
 
 Here is a table summarizing the supported providers and their capabilities:
 
-| Provider  | Zone Auto-Configured  | Supports Health Checks  | Supports Multivalue LB | Supports Latency LB  | Supports GeoProximity LB  |
-|:--:|:--:|:--:|:---:|:---:|:---:|
-| External-dns  | no  | no  | yes | no  | no  |
-| Route53  | yes(**)  | yes | yes(*)  | yes(*)  | yes(*)  |
+| Provider  | Supports Health Checks  | Supports Multivalue LB | Supports Latency LB  | Supports GeoProximity LB  |
+|:--:|:--:|:---:|:---:|:---:|
+| External-dns  | no  | yes | no  | no  |
+| Route53  | yes | yes(*)  | yes(*)  | yes(*)  |
 
 (*) only if all controlled clusters run on AWS.
-(**) currently not implemented
 
 ## GlobalDNSRecord
 
@@ -98,6 +97,50 @@ AWS Route53 provider at the moment requires that all the controlled clusters run
 
 If health checks are defined, a route53 health check originating from any reason (you have to ensure connectivity) will be created for each of the endpoint. Because the endpoint represent s a shared ELB (shared with other apps, that is) and the health check is app specific, we cannot use the ELB health check, so the route53 endpoint is created with one of the two IP exposed by the ELB. This is suboptimal, but it works in most situations.
 
+## Global Route Auto Discovery
+
+The aboev examples showed how to create global DNS records. This can be good in some situations, but most of the times in an openshift deployment global DNS records will point to routes that are intended to be global.
+The global-load-balancer operator can auto-discover these routes and automatically create the corresponding `GloablDNSRecord`. The `GlobalRouteDiscovery` CRD is used to configure the discovery process, here is an example:
+
+```yaml
+apiVersion: redhatcop.redhat.io/v1alpha1
+kind: GlobalRouteDiscovery
+metadata:
+  name: route53-globalroutediscovery
+spec:
+  clusters:
+  - clusterName: cluster1
+    clusterCredentialRef:
+      name: ${cluster1_secret_name}
+      namespace: cluster1
+...
+  routeSelector:
+    matchLabels:
+      route-type: global
+  defaultLoadBalancingPolicy: Multivalue
+  defaultTTL: 30 
+  globalZoneRef:
+    name: route53-global-dns-zone
+```
+
+This global discovery route will discover routes in the provided list of cluster. Only the routes that match the route selector will be considered global. 
+The default load balancing policy and default TTL can be expressed in the `GlobalRouteDiscovery` CR. However with the following annotations, it's possible to configure route-specific values:
+
+* `global-load-balancer-operator.redhat-cop.io/load-balancing-policy` to set the load balancing policy
+* `global-load-balancer-operator.redhat-cop.io/ttl` to set the TTL
+
+The globalZoneRef refers to the global zone to be used for the created `GlobalDNSRecords`.
+
+Health checks will also be automatically discovered. If the pods behind the route expose a readiness check of httpGet kind, that configuration will be used to create the GlobalDNSRecord health check.
+When more than one container is present in the pod, by default the first container will be examined for health check. This behavior can be overridden with the this annotation on the route: `global-load-balancer-operator.redhat-cop.io/container-probe` where the value will container the name of the container with teh correct readiness probe.
+
+If routes with the same namespace and name exists in multiple cluster, the following conditions must be met:
+
+* all host names must be the same
+* all load balancing policy must be the same
+* all TTLs must be the same
+* all discovered readiness checks must be the same
+
 ## Examples
 
 These examples are intended to help you setting up working configuration with each of the providers
@@ -142,6 +185,7 @@ Using the [operator-sdk](https://github.com/operator-framework/operator-sdk), ru
 ```shell
 oc apply -f deploy/crds/redhatcop.redhat.io_globaldnsrecords_crd.yaml
 oc apply -f deploy/crds/redhatcop.redhat.io_globaldnszones_crd.yaml
+oc apply -f deploy/crds/redhatcop.redhat.io_globalroutediscoveries_crd.yaml
 oc apply -f https://raw.githubusercontent.com/kubernetes-sigs/external-dns/master/docs/contributing/crd-source/crd-manifest.yaml
 oc new-project global-load-balancer-operator
 oc apply -f deploy/service_account.yaml -n global-load-balancer-operator
@@ -159,13 +203,12 @@ TODO:
 3. test cluster unreachable: reconcile cycle should not fail.
 4. <s>manage status & events</s>
 5. <s>manage delete & finalizers</s>
-5. complete AWS provider
-6. add ability to autodetect global routes
+5. <s>complete AWS provider</s>
+6. <s>add ability to autodetect global routes</s>
 7. evaluate using a different implementation of DNSRecord.
 8. test for correct permissions
 9. optimize remote service watchers
-10. add status management for global zone
-11. add ability to auto-create a global zone for aws 
+10. <s>add status management for global zone</s>
 12. add defaults to healthcheck probe in CR
 13. add a name tag to the route53 healthcheck
 14. add support for Weighted, Geolocation, Failover route53 load balancing policies.

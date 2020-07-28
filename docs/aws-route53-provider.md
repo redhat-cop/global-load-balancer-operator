@@ -77,3 +77,24 @@ dig geoproximity-hc.${global_base_domain}
 envsubst < ./docs/scripts/route53-latency-global-dns-record-with-healthcheck.yaml | oc apply -f - -n ${namespace}
 dig latency-hc.${global_base_domain}
 ```
+
+
+## Route Autodiscovery 
+
+delete global dns records from previous examples
+
+```shell
+oc delete globaldnsrecord --all -n ${namespace}
+```
+
+create global route autodiscovery
+
+```shell
+envsubst < ./docs/scripts/route53-global-route-discovery.yaml | oc apply -f - -n ${namespace}
+```
+
+check that global dns records are created
+
+```shell
+oc get globaldnsrecord -n ${namespace}
+```

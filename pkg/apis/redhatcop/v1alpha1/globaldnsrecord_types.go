@@ -34,11 +34,10 @@ type GlobalDNSRecordSpec struct {
 	//Probe is the health check used to probe the health of the applications and decide which IPs to return
 	//Only HttpAction is supported
 	// +kubebuilder:validation:Optional
-	HealthCheck v1.Probe `json:"healthCheck,omitempty"`
+	HealthCheck *v1.Probe `json:"healthCheck,omitempty"`
 
 	// LoadBalancingPolicy describes the policy used to loadbalance the results of the DNS queries.
 	// +kubebuilder:validation:Required
-	// kubebuilder:validation:Enum:={"RoundRobin","Multivalue","Proximity"}
 	LoadBalancingPolicy LoadBalancingPolicy `json:"loadBalancingPolicy"`
 
 	//GlobalZoneRef represents the global zone that will be used to host this record
@@ -47,6 +46,7 @@ type GlobalDNSRecordSpec struct {
 }
 
 // LoadBalancingPolicy describes the policy used to loadbalance the results of the DNS queries.
+// +kubebuilder:validation:Enum:={"Weighted","Multivalue","Geolocation","Geoproximity","Latency","Failover"}
 type LoadBalancingPolicy string
 
 const (
@@ -72,7 +72,7 @@ type Endpoint struct {
 	// +kubebuilder:validation:Required
 	ClusterName string `json:"clusterName"`
 	//CredentialsSecretRef is a reference to a secret containing the credentials to access the cluster
-	//a key called "kubeconfig" containf a valid kubeconfig file for connecting to the cluster must exist in this secret.
+	//a key called "kubeconfig" containing a valid kubeconfig file for connecting to the cluster must exist in this secret.
 	// +kubebuilder:validation:Required
 	CredentialsSecretRef NamespacedName `json:"clusterCredentialRef"`
 	//LoadBalancerServiceRef contains a reference to the load balancer service that will receive the traffic, if using a router, put here the service created by the ingress controller.
