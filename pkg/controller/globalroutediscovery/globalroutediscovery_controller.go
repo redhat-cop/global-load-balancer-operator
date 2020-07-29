@@ -262,7 +262,7 @@ func (r *ReconcileGlobalRouteDiscovery) Reconcile(request reconcile.Request) (re
 	for _, routeInfo := range qualifyingRoutes {
 		routeRouteInfoSMap[apis.GetKeyShort(&routeInfo.Route)] = append(routeRouteInfoSMap[apis.GetKeyShort(&routeInfo.Route)], routeInfo)
 	}
-
+	log.V(1).Info("rounte", "infos", routeRouteInfoSMap)
 	//create or update GlobalDNSRecords
 	for name, routeInfos := range routeRouteInfoSMap {
 		globaDNSRecord, err := getGlobalDNSRecord(instance, name, routeInfos)
@@ -338,6 +338,7 @@ func getGlobalDNSRecord(instance *redhatcopv1alpha1.GlobalRouteDiscovery, name s
 				Namespace: routeInfo.Service.Namespace,
 			},
 		}
+		log.V(1).Info("created", "endpoint", endpoint)
 		endpoints = append(endpoints, endpoint)
 	}
 	globaldnsrecord.Spec.Endpoints = endpoints

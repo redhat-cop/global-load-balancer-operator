@@ -71,3 +71,17 @@ envsubst < ./docs/scripts/external-dns-global-dns-record-ciao.yaml | oc apply -f
 dig hello.${global_base_domain}
 dig ciao.${global_base_domain}
 ```
+
+## Route Autodiscovery 
+
+create global route autodiscovery
+
+```shell
+envsubst < ./docs/scripts/external-dns-global-route-discovery.yaml | oc apply -f - -n ${namespace}
+```
+
+check that global dns records are created
+
+```shell
+oc get globaldnsrecord -n ${namespace}
+```
