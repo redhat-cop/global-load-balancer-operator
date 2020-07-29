@@ -26,6 +26,7 @@ func (r *ReconcileGlobalDNSRecord) createExternalDNSRecord(instance *redhatcopv1
 			log.Error(err, "unale to get IPs for", "endpoint", endpointStatus)
 			return r.ManageError(instance, endpointMap, err)
 		}
+		log.V(1).Info("found", "IPs", recordIPs)
 		IPs = append(IPs, recordIPs...)
 	}
 	log.V(1).Info("endpoint", "ips", IPs)

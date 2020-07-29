@@ -12,7 +12,7 @@ for namespace in cluster1 cluster2 cluster3; do
   export namespace
   envsubst < ./docs/scripts/router.yaml | oc apply -f -
 done
-oc patch ingresscontroller default -n openshift-ingress-operator -p '{"spec": {"labelSelector": {"matchExpressions": [{"key": "route-type", "operator": "NotIn", "values": ["global"]}]}}}' --type merge
+oc patch ingresscontroller default -n openshift-ingress-operator -p '{"spec": {"routeSelector": {"matchExpressions": [{"key": "route-type", "operator": "NotIn", "values": ["global"]}]}}}' --type merge
 ```
 
 ## Create kubeconfig secrets
@@ -36,6 +36,7 @@ done
 helm repo add podinfo https://stefanprodan.github.io/podinfo
 for namespace in cluster1 cluster2 cluster3; do
   helm upgrade --install --wait frontend --namespace ${namespace} --set replicaCount=2 --set backend=http://backend-podinfo:9898/echo podinfo/podinfo
+  oc patch deployment frontend-podinfo -n ${namespace} -p='[{"op": "replace", "path": "/spec/template/spec/containers/0/readinessProbe", "value":'$(yq -c . < ./docs/scripts/readiness-probe-patch.yaml)'}]' --type=json
   oc expose service frontend-podinfo --name multivalue --hostname multivalue.${global_base_domain} -n ${namespace} -l route-type=global,router=${namespace}
   oc expose service frontend-podinfo --name multivalue-hc --hostname multivalue-hc.${global_base_domain} -n ${namespace} -l route-type=global,router=${namespace}
 done  

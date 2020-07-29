@@ -519,7 +519,7 @@ func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, en
 					return "", err
 				}
 				for _, IP := range IPs {
-					route53Endpoints[GetEndpointKey(endpoint.endpoint)+IP] = tpdroute53.Route53Endpoint{
+					route53Endpoints[endpoint.endpoint.GetKey()+IP] = tpdroute53.Route53Endpoint{
 						Type:  tpdroute53.Value,
 						Value: IP,
 					}
@@ -530,7 +530,7 @@ func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, en
 	case redhatcopv1alpha1.Geoproximity:
 		{
 			for _, endpoint := range endpointMap {
-				route53Endpoints[GetEndpointKey(endpoint.endpoint)] = tpdroute53.Route53Endpoint{
+				route53Endpoints[endpoint.endpoint.GetKey()] = tpdroute53.Route53Endpoint{
 					Type:  tpdroute53.ElasticLoadBalacer,
 					Value: endpoint.service.Status.LoadBalancer.Ingress[0].Hostname,
 				}
@@ -540,7 +540,7 @@ func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, en
 	case redhatcopv1alpha1.Latency:
 		{
 			for _, endpoint := range endpointMap {
-				route53Endpoints[GetEndpointKey(endpoint.endpoint)] = tpdroute53.Route53Endpoint{
+				route53Endpoints[endpoint.endpoint.GetKey()] = tpdroute53.Route53Endpoint{
 					Type:  tpdroute53.ElasticLoadBalacer,
 					Value: endpoint.service.Status.LoadBalancer.Ingress[0].Hostname,
 				}
@@ -569,7 +569,7 @@ func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, en
 				}
 				for _, IP := range IPs {
 					route53EndpointRuleReference := tpdroute53.Route53EndpointRuleReference{
-						EndpointReference: GetEndpointKey(endpoint.endpoint) + IP,
+						EndpointReference: endpoint.endpoint.GetKey() + IP,
 					}
 					if instance.Spec.HealthCheck != nil {
 						healthCheckID, err := ensureRoute53HealthCheck(instance, route53Client, IP)
@@ -592,7 +592,7 @@ func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, en
 			route53EndpointRuleReferences := []tpdroute53.Route53EndpointRuleReference{}
 			for _, endpoint := range endpointMap {
 				route53EndpointRuleReference := tpdroute53.Route53EndpointRuleReference{
-					EndpointReference: GetEndpointKey(endpoint.endpoint),
+					EndpointReference: endpoint.endpoint.GetKey(),
 					Region:            "aws:route53:" + endpoint.infrastructure.Status.PlatformStatus.AWS.Region,
 					Bias:              0,
 				}
@@ -623,7 +623,7 @@ func getAWSTrafficPolicyDocument(instance *redhatcopv1alpha1.GlobalDNSRecord, en
 			route53EndpointRuleReferences := []tpdroute53.Route53EndpointRuleReference{}
 			for _, endpoint := range endpointMap {
 				route53EndpointRuleReference := tpdroute53.Route53EndpointRuleReference{
-					EndpointReference: GetEndpointKey(endpoint.endpoint),
+					EndpointReference: endpoint.endpoint.GetKey(),
 					Region:            endpoint.infrastructure.Status.PlatformStatus.AWS.Region,
 				}
 				if instance.Spec.HealthCheck != nil {

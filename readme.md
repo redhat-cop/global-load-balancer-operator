@@ -207,8 +207,9 @@ TODO:
 6. <s>add ability to autodetect global routes</s>
 7. evaluate using a different implementation of DNSRecord.
 8. test for correct permissions
-9. optimize remote service watchers
+9. <s>optimize remote service watchers</s>
 10. <s>add status management for global zone</s>
 12. add defaults to healthcheck probe in CR
 13. add a name tag to the route53 healthcheck
 14. add support for Weighted, Geolocation, Failover route53 load balancing policies.
+15. make parallel calls when possible
