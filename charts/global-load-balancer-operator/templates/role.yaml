@@ -1,3 +1,4 @@
+---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -49,6 +50,7 @@ kind: Role
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
   name: global-load-balancer-operator
+  namespace: {{ .Release.Namespace }}
 rules:
 # leader election   
 - apiGroups:
@@ -91,4 +93,4 @@ rules:
   resourceNames:
   - global-load-balancer-operator
   verbs:
-  - "update"
+  - "update"  
