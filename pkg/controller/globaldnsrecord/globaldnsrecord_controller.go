@@ -110,12 +110,6 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 // blank assignment to verify that ReconcileGlobalDNSRecord implements reconcile.Reconciler
 var _ reconcile.Reconciler = &ReconcileGlobalDNSRecord{}
 
-// this contains a map of endpoint keys and the relative controlling manager
-//type EndPointManagers map[string]*remotemanager.RemoteManager
-
-// this containes a map of currently know DNSrecords and their map of endpoint managers
-//var TrackedEndpointMap = map[types.NamespacedName]EndPointManagers{}
-
 // Reconcile reads that state of the cluster for a GlobalDNSRecord object and makes changes based on the state read
 // and what is in the GlobalDNSRecord.Spec
 // TODO(user): Modify this Reconcile function to implement your Controller logic.  This example creates
@@ -197,53 +191,6 @@ func (r *ReconcileGlobalDNSRecord) Reconcile(request reconcile.Request) (reconci
 		return r.ManageError(instance, endpointStatusMap, err)
 	}
 
-	// [1] verify if we have a GlobalDNSRecord for this instance
-
-	// endpointManagerMap := map[string]*remotemanager.RemoteManager{}
-
-	// for _, endpoint := range instance.Spec.Endpoints {
-	// 	endpointManagerMap[GetEndpointKey(endpoint)] = remoteManagersMap[endpoint.CredentialsSecretRef.GetKey()]
-	// }
-
-	//endpointManagerMap, ok := TrackedEndpointMap[request.NamespacedName]
-	// same := false
-
-	// if ok {
-	// 	// [1.2] if yes, verify if the watched service are the same
-	// 	log.V(1).Info("remote managers already exist")
-	// 	same = isSameServices(endpointManagerMap, instance)
-	// 	if !same {
-	// 		// [1.2.2] if no, stop the current watchers
-	// 		log.V(1).Info("remote managers are not the same")
-	// 		for _, stoppableManager := range endpointManagerMap {
-	// 			stoppableManager.Stop()
-	// 		}
-	// 		// [1.2.1] if yes, go to [3]
-	// 	} else {
-	// 		log.V(1).Info("remote managers are the same")
-	// 	}
-	// 	// [1.2] if no go to [2]
-	// } else {
-	// 	log.V(1).Info("remote managers do not exist")
-	// }
-
-	// if !ok || !same {
-	// 	// [2] for each cluster, create service watchers
-	// 	endpointManagerMap, err = r.createRemoteManagers(instance)
-	// 	log.V(1).Info("new remote managers created")
-	// 	if err != nil {
-	// 		log.Error(err, "unable to create remote managers")
-	// 		return r.ManageError(instance, endpointStatusMap, err)
-	// 	}
-	// 	for _, stoppableManager := range endpointManagerMap {
-	// 		stoppableManager.Start()
-	// 		log.V(1).Info("new remote managers started")
-	// 	}
-	// 	TrackedEndpointMap[request.NamespacedName] = endpointManagerMap
-	// }
-
-	// at this point the remoteManagers are created correctly and this will start sending us events if any of the service changes.
-
 	for _, endpoint := range instance.Spec.Endpoints {
 		endpointStatus, err := r.getEndPointStatus(endpoint)
 		if err != nil {
@@ -299,32 +246,6 @@ func (r *ReconcileGlobalDNSRecord) createRemoteManager(endpoint redhatcopv1alpha
 	}
 	return remoteManager, nil
 }
-
-// func (r *ReconcileGlobalDNSRecord) createRemoteManagers(instance *redhatcopv1alpha1.GlobalDNSRecord) (map[string]*remotemanager.RemoteManager, error) {
-// 	managerMap := map[string]*remotemanager.RemoteManager{}
-// 	for _, endpoint := range instance.Spec.Endpoints {
-// 		stoppablemanager, err := r.createManager(endpoint, instance)
-// 		if err != nil {
-// 			log.Error(err, "unable to create manager for ", "endpoint", endpoint)
-// 			return nil, err
-// 		}
-// 		managerMap[GetEndpointKey(endpoint)] = stoppablemanager
-// 	}
-// 	return managerMap, nil
-// }
-
-// func isSameServices(endpointManagerMap EndPointManagers, instance *redhatcopv1alpha1.GlobalDNSRecord) (same bool) {
-// 	currentRecord := strset.New()
-// 	newRecord := strset.New()
-// 	for key := range endpointManagerMap {
-// 		currentRecord.Add(key)
-// 	}
-// 	for _, endpoint := range instance.Spec.Endpoints {
-// 		newRecord.Add(GetEndpointKey(endpoint))
-// 	}
-// 	same = currentRecord.IsEqual(newRecord)
-// 	return same
-// }
 
 //ManageError manage error sets an error status in the CR and fires an event, finally it returns the error so the operator can re-attempt
 func (r *ReconcileGlobalDNSRecord) ManageError(instance *redhatcopv1alpha1.GlobalDNSRecord, endpointStatusMap map[string]EndpointStatus, issue error) (reconcile.Result, error) {
@@ -419,17 +340,6 @@ func (r *ReconcileGlobalDNSRecord) manageCleanUpLogic(instance *redhatcopv1alpha
 		log.Error(err, "unable to ensure correct remote managers")
 		return err
 	}
-	// stop managers
-	// if endpointManagerMap, ok := TrackedEndpointMap[types.NamespacedName{
-	// 	Name:      instance.Name,
-	// 	Namespace: instance.Namespace,
-	// }]; ok {
-	// 	for _, remoteManager := range endpointManagerMap {
-	// 		if remoteManager.IsStarted() {
-	// 			remoteManager.Stop()
-	// 		}
-	// 	}
-	// }
 
 	// provider specific finalizer
 
