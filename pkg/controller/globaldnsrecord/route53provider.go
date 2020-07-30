@@ -7,6 +7,8 @@ import (
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
+	"github.com/aws/aws-sdk-go/aws/session"
+	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/service/route53"
 	ocpconfigv1 "github.com/openshift/api/config/v1"
 	redhatcopv1alpha1 "github.com/redhat-cop/global-load-balancer-operator/pkg/apis/redhatcop/v1alpha1"
@@ -129,6 +131,17 @@ func createHealthCheck(probe *corev1.Probe, route53Client *route53.Route53, ip s
 	if err != nil {
 		log.Error(err, "unable to cretae AWS", "health check", healthCheckInput)
 		return "", err
+	}
+	//add tagging of health check
+	tagClient := resourcegroupstaggingapi.New(session.Must(session.NewSession()), &route53Client.Config)
+	_, err = tagClient.TagResources(&resourcegroupstaggingapi.TagResourcesInput{
+		ResourceARNList: []*string{aws.String("arn:aws:route53:::healthcheck/" + *result.Location)},
+		Tags: map[string]*string{
+			"Name": aws.String(probe.HTTPGet.Host + "@" + ip),
+		},
+	})
+	if err != nil {
+		log.Error(err, "unable to tag", "health check", *result.Location)
 	}
 	return *result.Location, nil
 }

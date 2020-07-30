@@ -205,11 +205,11 @@ TODO:
 5. <s>manage delete & finalizers</s>
 5. <s>complete AWS provider</s>
 6. <s>add ability to autodetect global routes</s>
-7. evaluate using a different implementation of DNSRecord.
+7. evaluate using a different implementation of DNSRecord. -> not needed
 8. test for correct permissions
 9. <s>optimize remote service watchers</s>
 10. <s>add status management for global zone</s>
 12. <s>add defaults to healthcheck probe in CR</s>
-13. add a name tag to the route53 healthcheck
+13. <s>add a name tag to the route53 healthcheck</s>
 14. add support for Weighted, Geolocation, Failover route53 load balancing policies.
 
