@@ -48,6 +48,7 @@ type ReconcileGlobalRouteDiscovery struct {
 	// This client, initialized using mgr.Client() above, is a split client
 	// that reads objects from the cache and writes to the apiserver
 	util.ReconcilerBase
+	apireader client.Reader
 }
 
 //var remoteManagersMap = sync.Map{}
@@ -69,6 +70,7 @@ func Add(mgr manager.Manager) error {
 func newReconciler(mgr manager.Manager) reconcile.Reconciler {
 	return &ReconcileGlobalRouteDiscovery{
 		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor(controllerName)),
+		apireader:      mgr.GetAPIReader(),
 	}
 }
 
@@ -131,7 +133,7 @@ func (r *ReconcileGlobalRouteDiscovery) Reconcile(request reconcile.Request) (re
 
 	// Fetch the GlobalRouteDiscovery instance
 	instance := &redhatcopv1alpha1.GlobalRouteDiscovery{}
-	err := r.GetClient().Get(context.TODO(), request.NamespacedName, instance)
+	err := r.apireader.Get(context.TODO(), request.NamespacedName, instance)
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// Request object not found, could have been deleted after reconcile request.
@@ -252,7 +254,7 @@ func (r *ReconcileGlobalRouteDiscovery) Reconcile(request reconcile.Request) (re
 		//if route has an annotation for lb policy track it.
 		//map[server]routeinfo
 	}
-
+	log.V(1).Info("found", "qualifying routes", len(qualifyingRoutes))
 	//reorder data structure per route
 	//map[route][]routeinfo+endpointinfo
 	routeRouteInfoSMap := map[string][]RouteInfo{}
@@ -260,7 +262,7 @@ func (r *ReconcileGlobalRouteDiscovery) Reconcile(request reconcile.Request) (re
 	for _, routeInfo := range qualifyingRoutes {
 		routeRouteInfoSMap[apis.GetKeyShort(&routeInfo.Route)] = append(routeRouteInfoSMap[apis.GetKeyShort(&routeInfo.Route)], routeInfo)
 	}
-
+	log.V(1).Info("rounte", "infos map len", len(routeRouteInfoSMap))
 	//create or update GlobalDNSRecords
 	for name, routeInfos := range routeRouteInfoSMap {
 		globaDNSRecord, err := getGlobalDNSRecord(instance, name, routeInfos)
@@ -275,7 +277,7 @@ func (r *ReconcileGlobalRouteDiscovery) Reconcile(request reconcile.Request) (re
 		}
 	}
 
-	log.V(1).Info("about to update status")
+	//log.V(1).Info("about to update status")
 	return r.ManageSuccess(instance)
 }
 
@@ -285,7 +287,7 @@ func getGlobalDNSRecord(instance *redhatcopv1alpha1.GlobalRouteDiscovery, name s
 		log.Error(err, "at least one route info must be passed", "routeInfos", routeInfos)
 		return nil, err
 	}
-
+	log.V(1).Info("route info array", "len", len(routeInfos))
 	route0 := routeInfos[0]
 	// consistency checks
 	for i, route := range routeInfos {
@@ -336,6 +338,7 @@ func getGlobalDNSRecord(instance *redhatcopv1alpha1.GlobalRouteDiscovery, name s
 				Namespace: routeInfo.Service.Namespace,
 			},
 		}
+		log.V(1).Info("created", "endpoint", endpoint)
 		endpoints = append(endpoints, endpoint)
 	}
 	globaldnsrecord.Spec.Endpoints = endpoints
@@ -637,7 +640,7 @@ func getClusterReferenceStatuses(instance *redhatcopv1alpha1.GlobalRouteDiscover
 
 // ManageSuccess will update the status of the CR and return a successful reconcile result
 func (r *ReconcileGlobalRouteDiscovery) ManageSuccess(instance *redhatcopv1alpha1.GlobalRouteDiscovery) (reconcile.Result, error) {
-	log.V(1).Info("manage success called")
+	//log.V(1).Info("manage success called")
 	condition := status.Condition{
 		Type:               "ReconcileSuccess",
 		LastTransitionTime: metav1.Now(),
@@ -646,10 +649,10 @@ func (r *ReconcileGlobalRouteDiscovery) ManageSuccess(instance *redhatcopv1alpha
 		Status:             corev1.ConditionTrue,
 	}
 	instance.Status.Conditions = status.NewConditions(condition)
-	log.V(1).Info("getting cluster reference statuses")
+	//log.V(1).Info("getting cluster reference statuses")
 	instance.Status.ClusterReferenceStatuses = getClusterReferenceStatuses(instance, r.GetRecorder())
-	log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
-	log.V(1).Info("about to update status", "instance", instance)
+	//log.V(1).Info("about to modify state for", "instance version", instance.GetResourceVersion())
+	//log.V(1).Info("about to update status", "instance", instance)
 	err := r.GetClient().Status().Update(context.Background(), instance)
 	if err != nil {
 		if errors.IsResourceExpired(err) {

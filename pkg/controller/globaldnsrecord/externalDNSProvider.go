@@ -26,8 +26,11 @@ func (r *ReconcileGlobalDNSRecord) createExternalDNSRecord(instance *redhatcopv1
 			log.Error(err, "unale to get IPs for", "endpoint", endpointStatus)
 			return r.ManageError(instance, endpointMap, err)
 		}
+		log.V(1).Info("found", "IPs", recordIPs)
 		IPs = append(IPs, recordIPs...)
 	}
+	//shake out the duplicates, althought there shouldn't be any
+	IPs = strset.New(IPs...).List()
 	log.V(1).Info("endpoint", "ips", IPs)
 	newDNSEndpoint := &endpoint.DNSEndpoint{
 		TypeMeta: metav1.TypeMeta{

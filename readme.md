@@ -72,8 +72,33 @@ spec:
   ttl: 60
   loadBalancingPolicy: Multivalue
   globalZoneRef:
-    name: external-dns-zone  
+    name: external-dns-zone
+  healthCheck:
+    failureThreshold: 3
+    httpGet:
+      host: hello.global.myzone.io
+      httpHeaders:
+        - name: ciao
+          value: hello
+      path: /readyz
+      port: 80
+      scheme: HTTP
+    periodSeconds: 10
+    successThreshold: 1
+    timeoutSeconds: 1     
 ```
+
+The list of endpoints identifies the set of `LoadBalancer` type of services to watch on the remote clusters (at the moment only LoadBalancer services are supported). These are the `LoadBalancer` services created by the [ingress controller](https://docs.openshift.com/container-platform/4.5/networking/ingress-operator.html) on which the routers rely. Each entry of this list requires a reference to the loadbalancer service on the remote cluster and a reference to a local secret containing the credential to connect to the remote cluster.
+
+This secret must contain one entry called `kubeconfig` with a kubeconfig file with a default context pointing to the remote cluster. The account used by the kubeconfig file (presumably a service account) will require at a minimum cluster-level permissions as described in this [cluster role](./docs/scripts/remote-account-cluster-role.yaml).
+
+The `globalZoneRef` field refers to a local (same namespace) `GlobalZone` CR. The DNS record represented by this `GlobalDNSRecord`, will be created in the referenced zone.
+
+`ttl` is the TTL of the crated DNS record.
+
+`loadBalancingPolicy` is the load balancing policy for this global record. It must match one of the policy supported by the provider of the referenced `GlobalZone`.
+
+Finally, `healthcheck` represent a [probe](https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#probe-v1-core) to be used to test the health of a record. This field will be ignored if the provider does not support health checks.
 
 ## External DNS Provider
 
@@ -205,10 +230,11 @@ TODO:
 5. <s>manage delete & finalizers</s>
 5. <s>complete AWS provider</s>
 6. <s>add ability to autodetect global routes</s>
-7. evaluate using a different implementation of DNSRecord.
-8. test for correct permissions
-9. optimize remote service watchers
+7. evaluate using a different implementation of DNSRecord. -> not needed
+8. <s>test for correct permissions</s>
+9. <s>optimize remote service watchers</s>
 10. <s>add status management for global zone</s>
-12. add defaults to healthcheck probe in CR
-13. add a name tag to the route53 healthcheck
+12. <s>add defaults to healthcheck probe in CR</s>
+13. <s>add a name tag to the route53 healthcheck</s>
 14. add support for Weighted, Geolocation, Failover route53 load balancing policies.
+

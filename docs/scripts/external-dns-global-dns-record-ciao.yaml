@@ -1,0 +1,32 @@
+apiVersion: redhatcop.redhat.io/v1alpha1
+kind: GlobalDNSRecord
+metadata:
+  name: ciao-global-record
+spec:
+  name: ciao.${global_base_domain}
+  endpoints:
+  - clusterName: cluster1
+    clusterCredentialRef:
+      name: ${cluster1_secret_name}
+      namespace: cluster1
+    loadBalancerServiceRef:
+      name: ${cluster1_service_name}
+      namespace: ${cluster1_service_namespace}
+  - clusterName: cluster2
+    clusterCredentialRef:
+      name: ${cluster2_secret_name}
+      namespace: cluster2
+    loadBalancerServiceRef:
+      name: ${cluster2_service_name}
+      namespace: ${cluster2_service_namespace}
+  - clusterName: cluster3
+    clusterCredentialRef:
+      name: ${cluster3_secret_name}
+      namespace: cluster3
+    loadBalancerServiceRef:
+      name: ${cluster3_service_name}
+      namespace: ${cluster3_service_namespace}
+  ttl: 60
+  loadBalancingPolicy: Multivalue
+  globalZoneRef:
+    name: external-dns-zone                 

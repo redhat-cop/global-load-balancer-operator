@@ -58,13 +58,30 @@ At this point install the global-dns-operator with one of the [installation meth
 ## Create a global DNS zone and record
 
 ```shell
-oc new-project global-load-balancer-operator-test 
+export namespace=global-load-balancer-operator-test
+oc new-project ${namespace} 
 envsubst < ./docs/scripts/external-dns-zone.yaml | oc apply -f -
-envsubst < ./docs/scripts/global-dns-record.yaml | oc apply -f - -n global-load-balancer-operator-test
+envsubst < ./docs/scripts/external-dns-global-dns-record-hello.yaml | oc apply -f - -n ${namespace}
+envsubst < ./docs/scripts/external-dns-global-dns-record-ciao.yaml | oc apply -f - -n ${namespace}
 ```
 
 ## test the global dns record
 
 ```shell
 dig hello.${global_base_domain}
+dig ciao.${global_base_domain}
+```
+
+## Route Autodiscovery 
+
+create global route autodiscovery
+
+```shell
+envsubst < ./docs/scripts/external-dns-global-route-discovery.yaml | oc apply -f - -n ${namespace}
+```
+
+check that global dns records are created
+
+```shell
+oc get globaldnsrecord -n ${namespace}
 ```

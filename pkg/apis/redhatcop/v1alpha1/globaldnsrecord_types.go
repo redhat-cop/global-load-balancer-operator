@@ -80,6 +80,10 @@ type Endpoint struct {
 	LoadBalancerServiceRef NamespacedName `json:"loadBalancerServiceRef"`
 }
 
+func (e *Endpoint) GetKey() string {
+	return e.LoadBalancerServiceRef.Namespace + "/" + e.LoadBalancerServiceRef.Name + "@" + e.CredentialsSecretRef.Namespace + "/" + e.CredentialsSecretRef.Name
+}
+
 // NamespacedName a pointer to a resource in a given namespace
 type NamespacedName struct {
 	// +kubebuilder:validation:Required
