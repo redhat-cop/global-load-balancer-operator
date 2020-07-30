@@ -14,6 +14,8 @@ rules:
   - globaldnsrecords/finalizers
   - globaldnsrecords/status
   - globalroutediscoveries
+  - globalroutediscoveries/finalizers
+  - globalroutediscoveries/status
   verbs:
   - create
   - delete
@@ -23,6 +25,18 @@ rules:
   - update
   - watch
 - apiGroups:
+  - externaldns.k8s.io
+  resources:
+  - dnsendpoints
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch  
+- apiGroups:
   - ""
   resources:
   - secrets
@@ -30,3 +44,51 @@ rules:
   - get
   - list
   - watch
+---
+  kind: Role
+  apiVersion: rbac.authorization.k8s.io/v1
+  metadata:
+    name: global-load-balancer-operator
+  rules:
+  # leader election   
+  - apiGroups:
+    - ""
+    resources:
+    - configmaps
+    - pods
+    verbs:
+    - "*"  
+  #Metrics  
+  - apiGroups:
+    - ""
+    resources:
+    - services
+    - services/finalizers
+    verbs:
+    - "*"
+  #Metrics  
+  - apiGroups:
+    - "apps"
+    resources:
+    - replicasets
+    - deployments
+    verbs: 
+    - "get"
+    - "list"
+  # Metrics  
+  - apiGroups:
+    - monitoring.coreos.com
+    resources:
+    - servicemonitors
+    verbs:
+    - "get"
+    - "create"
+  # Metrics  
+  - apiGroups:
+    - apps
+    resources:
+    - deployments/finalizers
+    resourceNames:
+    - egressip-ipam-operator
+    verbs:
+    - "update"  
