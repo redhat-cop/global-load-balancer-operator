@@ -254,7 +254,7 @@ func (r *ReconcileGlobalRouteDiscovery) Reconcile(request reconcile.Request) (re
 		//if route has an annotation for lb policy track it.
 		//map[server]routeinfo
 	}
-
+	log.V(1).Info("found", "qualifying routes", len(qualifyingRoutes))
 	//reorder data structure per route
 	//map[route][]routeinfo+endpointinfo
 	routeRouteInfoSMap := map[string][]RouteInfo{}
@@ -262,7 +262,7 @@ func (r *ReconcileGlobalRouteDiscovery) Reconcile(request reconcile.Request) (re
 	for _, routeInfo := range qualifyingRoutes {
 		routeRouteInfoSMap[apis.GetKeyShort(&routeInfo.Route)] = append(routeRouteInfoSMap[apis.GetKeyShort(&routeInfo.Route)], routeInfo)
 	}
-	log.V(1).Info("rounte", "infos", routeRouteInfoSMap)
+	log.V(1).Info("rounte", "infos map len", len(routeRouteInfoSMap))
 	//create or update GlobalDNSRecords
 	for name, routeInfos := range routeRouteInfoSMap {
 		globaDNSRecord, err := getGlobalDNSRecord(instance, name, routeInfos)
@@ -287,7 +287,7 @@ func getGlobalDNSRecord(instance *redhatcopv1alpha1.GlobalRouteDiscovery, name s
 		log.Error(err, "at least one route info must be passed", "routeInfos", routeInfos)
 		return nil, err
 	}
-
+	log.V(1).Info("route info array", "len", len(routeInfos))
 	route0 := routeInfos[0]
 	// consistency checks
 	for i, route := range routeInfos {

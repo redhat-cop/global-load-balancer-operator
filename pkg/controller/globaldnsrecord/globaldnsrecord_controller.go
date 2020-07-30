@@ -390,6 +390,25 @@ func (r *ReconcileGlobalDNSRecord) IsInitialized(obj metav1.Object) bool {
 		util.AddFinalizer(globalDNSRecord, controllerName)
 		isInitialized = false
 	}
+	if globalDNSRecord.Spec.HealthCheck != nil {
+		probe := globalDNSRecord.Spec.HealthCheck
+		if probe.FailureThreshold == 0 {
+			probe.FailureThreshold = 3
+			isInitialized = false
+		}
+		if probe.PeriodSeconds == 0 {
+			probe.PeriodSeconds = 10
+			isInitialized = false
+		}
+		if probe.SuccessThreshold == 0 {
+			probe.SuccessThreshold = 1
+			isInitialized = false
+		}
+		if probe.TimeoutSeconds == 0 {
+			probe.SuccessThreshold = 1
+			isInitialized = false
+		}
+	}
 	return isInitialized
 }
 

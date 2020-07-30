@@ -209,7 +209,7 @@ TODO:
 8. test for correct permissions
 9. <s>optimize remote service watchers</s>
 10. <s>add status management for global zone</s>
-12. add defaults to healthcheck probe in CR
+12. <s>add defaults to healthcheck probe in CR</s>
 13. add a name tag to the route53 healthcheck
 14. add support for Weighted, Geolocation, Failover route53 load balancing policies.
-15. make parallel calls when possible
+
