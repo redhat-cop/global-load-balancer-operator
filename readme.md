@@ -231,7 +231,7 @@ TODO:
 5. <s>complete AWS provider</s>
 6. <s>add ability to autodetect global routes</s>
 7. evaluate using a different implementation of DNSRecord. -> not needed
-8. test for correct permissions
+8. <s>test for correct permissions</s>
 9. <s>optimize remote service watchers</s>
 10. <s>add status management for global zone</s>
 12. <s>add defaults to healthcheck probe in CR</s>

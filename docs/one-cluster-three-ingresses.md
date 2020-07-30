@@ -2,7 +2,8 @@
 
 ## Create ingress controllers
 
-This will create three ingress controllers and relative routers. They will act as if they were ingress points for three separate clusters
+This will create three ingress controllers and relative routers. They will act as if they were ingress points for three separate clusters,
+This approach is used only for testing purposes as way to to save resources, not all the possible configuration are supported with this approach (in particular global route auto discovery does not work with this approach)
 
 ```shell
 export cluster_base_domain=$(oc get dns cluster -o jsonpath='{.spec.baseDomain}')
