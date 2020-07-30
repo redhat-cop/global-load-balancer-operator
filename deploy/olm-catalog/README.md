@@ -18,13 +18,13 @@ update the [`deploy/operator.yaml`](./deploy/operator.yaml) with the image tag o
 If you creating the csv for the first time run the following:
 
 ```shell
-operator-sdk olm-catalog gen-csv --csv-version $new_version --csv-channel alpha --default-channel
+operator-sdk generate csv --csv-version $new_version --csv-channel alpha --default-channel
 ```
 
 If you are updating run the following:
 
 ```shell
-operator-sdk olm-catalog gen-csv --csv-version $new_version --from-version $old_version --update-crds
+operator-sdk generate csv --csv-version $new_version --from-version $old_version --update-crds --make-manifests=false
 ```
 
 verify the created csv:

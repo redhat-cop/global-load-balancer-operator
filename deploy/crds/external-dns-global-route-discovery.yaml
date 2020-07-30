@@ -1,0 +1,25 @@
+apiVersion: redhatcop.redhat.io/v1alpha1
+kind: GlobalRouteDiscovery
+metadata:
+  name: external-dns-globalroutediscovery
+spec:
+  clusters:
+  - clusterName: cluster1
+    clusterCredentialRef:
+      name: secret1
+      namespace: cluster1
+  - clusterName: cluster2
+    clusterCredentialRef:
+      name: secret2
+      namespace: cluster2
+  - clusterName: cluster3
+    clusterCredentialRef:
+      name: secret3
+      namespace: cluster3
+  routeSelector:
+    matchLabels:
+      route-type: global
+  defaultLoadBalancingPolicy: Multivalue
+  defaultTTL: 30 
+  globalZoneRef:
+    name: external-dns-zone

@@ -1,7 +1,0 @@
-apiVersion: redhatcop.redhat.io/v1alpha1
-kind: GlobalDNSRecord
-metadata:
-  name: example-globaldnsrecord
-spec:
-  # Add fields here
-  size: 3

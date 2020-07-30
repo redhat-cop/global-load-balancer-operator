@@ -102,7 +102,7 @@ Finally, `healthcheck` represent a [probe](https://kubernetes.io/docs/reference/
 
 ## External DNS Provider
 
-The [external-dns]() provider delegates to external-dns the creation of the actual DNS records by creating a `DNSEndpoint` object.
+The [external-dns](https://github.com/kubernetes-sigs/external-dns) provider delegates to external-dns the creation of the actual DNS records by creating a `DNSEndpoint` object.
 The `DNSEndpoint` object will be created in the same namespace as the `GlobalDNSRecord` and will be owned by it.
 The `DNSEdnpoint` object will have the same labels as the `GlobalDNSRecord` and the annotations specified in the GlobalDNSZone configuration.
 External-dns should be configured to watch for DNSEnpoints at the cluster level and to point to the desired provider.
@@ -175,7 +175,7 @@ These examples are intended to help you setting up working configuration with ea
 Two approaches for cluster setup are provided
 
 1. [One cluster, three ingress-gateways.](./docs/one-cluster-three-ingress-gateways.md) This approach is intended for development purposes and has the objective to keep resource consumption at the minimum.
-2. [Control cluster and three controlled clusters in different regions](./docs/three-clusters.md). This approach represents a more realistic set-up albeit it consumes more resources.
+2. [Control cluster and three controlled clusters in different regions.](./docs/three-clusters.md). This approach represents a more realistic set-up albeit it consumes more resources.
 
 You can also set up the cluster on your own, at the end the following conditions must be met:
 
