@@ -1,0 +1,23 @@
+apiVersion: v1
+entries:
+  global-load-balancer-operator:
+  - apiVersion: v1
+    appVersion: v0.1.0
+    created: "2020-07-31T14:12:04.518241144Z"
+    description: Helm chart that deploys global-load-balancer-operator
+    digest: 730ea4a0aad0362417cfff514402b4a2a8fe4201b641e107488db579ef7468e4
+    engine: gotpl
+    keywords:
+    - gtm
+    - glb
+    - global-load-balancer
+    - dns
+    - multicluster
+    - networking
+    name: global-load-balancer-operator
+    sources:
+    - https://github.com/redhat-cop/global-load-balancer-operator
+    urls:
+    - https://redhat-cop.github.io/global-load-balancer-operator/global-load-balancer-operator/global-load-balancer-operator-v0.1.0.tgz
+    version: v0.1.0
+generated: "2020-07-31T14:12:04.517052792Z"
