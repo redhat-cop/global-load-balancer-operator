@@ -28,7 +28,7 @@ type GlobalDNSRecordSpec struct {
 
 	//TTL is the TTL for this dns record
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:60
+	// kubebuilder:default:60
 	TTL int `json:"ttl,omitempty"`
 
 	//Probe is the health check used to probe the health of the applications and decide which IPs to return

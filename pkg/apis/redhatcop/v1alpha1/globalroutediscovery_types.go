@@ -27,12 +27,12 @@ type GlobalRouteDiscoverySpec struct {
 
 	//DefaultLoadBalancingPolicy defines the load balancing policy to be used by default. This can be overridden with a route annotation TODO which?
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:="Multivalue"
+	// -kubebuilder:default:="Multivalue"
 	DefaultLoadBalancingPolicy LoadBalancingPolicy `json:"defaultLoadBalancingPolicy,omitempty"`
 
 	//Dfeault TTL is the TTL for this dns record
 	// +kubebuilder:validation:Optional
-	// +kubebuilder:default:60
+	// -kubebuilder:default:60
 	DefaultTTL int `json:"defaultTTL,omitempty"`
 
 	//GlobalZoneRef represents the global zone that will be used to host this record

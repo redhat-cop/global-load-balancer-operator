@@ -36,6 +36,13 @@ operator-courier --verbose verify --ui_validate_io deploy/olm-catalog/global-loa
 
 ## Test new CSV
 
+One new way to test is the following:
+
+```shell
+oc new-project global-load-balancer-operator
+operator-sdk run packagemanifests --operator-version ${new_version} --install-mode=OwnNamespace=global-load-balancer-operator --olm-namespace openshift-operator-lifecycle-manager --operator-namespace global-load-balancer-operator
+```
+
 Test what the operator would look like in OperatorHub, by going to this [site](https://operatorhub.io/preview) and paste the csv/
 
 Test the operator deployment process from OperatorHub

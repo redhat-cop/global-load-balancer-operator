@@ -677,5 +677,13 @@ func (r *ReconcileGlobalRouteDiscovery) IsInitialized(obj metav1.Object) bool {
 		util.AddFinalizer(globalRouteDiscovery, controllerName)
 		isInitialized = false
 	}
+	if globalRouteDiscovery.Spec.DefaultLoadBalancingPolicy == "" {
+		globalRouteDiscovery.Spec.DefaultLoadBalancingPolicy = redhatcopv1alpha1.Multivalue
+		isInitialized = false
+	}
+	if globalRouteDiscovery.Spec.DefaultTTL == 0 {
+		globalRouteDiscovery.Spec.DefaultTTL = 60
+		isInitialized = false
+	}
 	return isInitialized
 }
