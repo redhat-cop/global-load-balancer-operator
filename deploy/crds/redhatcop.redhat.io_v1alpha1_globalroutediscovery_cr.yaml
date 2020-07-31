@@ -1,7 +1,0 @@
-apiVersion: redhatcop.redhat.io/v1alpha1
-kind: GlobalRouteDiscovery
-metadata:
-  name: example-globalroutediscovery
-spec:
-  # Add fields here
-  size: 3

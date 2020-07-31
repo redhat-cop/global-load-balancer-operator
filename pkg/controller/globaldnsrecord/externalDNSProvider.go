@@ -44,7 +44,7 @@ func (r *ReconcileGlobalDNSRecord) createExternalDNSRecord(instance *redhatcopv1
 			Annotations: globalzone.Spec.Provider.ExternalDNS.Annotations,
 		},
 		Spec: endpoint.DNSEndpointSpec{
-			[]*endpoint.Endpoint{
+			Endpoints: []*endpoint.Endpoint{
 				{
 					DNSName:    instance.Spec.Name,
 					RecordTTL:  endpoint.TTL(instance.Spec.TTL),

@@ -1,0 +1,13 @@
+apiVersion: redhatcop.redhat.io/v1alpha1
+kind: GlobalDNSZone
+metadata:
+  name: route53-global-dns-zone
+spec:
+  # Add fields here
+  domain: myglobalzone.mybasedomain.io
+  provider:
+    route53:
+      zoneID: Z083892239ROKNEP70BDY
+      credentialsSecretRef:
+        name: route53-global-zone-credentials
+        namespace: mynamespace
