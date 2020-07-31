@@ -3,9 +3,9 @@ entries:
   global-load-balancer-operator:
   - apiVersion: v1
     appVersion: v0.1.0
-    created: "2020-07-31T14:12:04.518241144Z"
+    created: "2020-07-31T20:17:18.359638376Z"
     description: Helm chart that deploys global-load-balancer-operator
-    digest: 730ea4a0aad0362417cfff514402b4a2a8fe4201b641e107488db579ef7468e4
+    digest: 119f793bc8120db8a1bdad9b6a38503b6ae3f863b485e1573cd3dfb3d910271d
     engine: gotpl
     keywords:
     - gtm
@@ -20,4 +20,4 @@ entries:
     urls:
     - https://redhat-cop.github.io/global-load-balancer-operator/global-load-balancer-operator/global-load-balancer-operator-v0.1.0.tgz
     version: v0.1.0
-generated: "2020-07-31T14:12:04.517052792Z"
+generated: "2020-07-31T20:17:18.359051376Z"
