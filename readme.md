@@ -1,6 +1,8 @@
 
 # Global Load Balancer Operator
 
+[![Build Status](https://travis-ci.org/redhat-cop/global-load-balancer-operator.svg?branch=master)](https://travis-ci.org/redhat-cop/global-load-balancer-operator) [![Docker Repository on Quay](https://quay.io/repository/redhat-cop/global-load-balancer-operator/status "Docker Repository on Quay")](https://quay.io/repository/redhat-cop/global-load-balancer-operator)
+
 The global-load-balancer-operator implements automation to program a DNS service to act as global load balancer for applications deployed to multiple OpenShift clusters.
 This operator is designed to be deployed to a control cluster which will watch the load balanced clusters (controlled clusters).
 There are two main concepts (APIs) provided by this operator:
