@@ -1,27 +1,21 @@
-apiVersion: multicloud.ibm.com/v1alpha1
-kind: EndpointConfig
+apiVersion: agent.open-cluster-management.io/v1
+kind: KlusterletAddonConfig
 metadata:
   name: {{ template "acm-aws-cluster.fullname" . }}
 spec:
   clusterName: {{ template "acm-aws-cluster.fullname" . }}
   clusterNamespace: {{ .Release.Namespace }}
   clusterLabels:
-    cloud: auto-detect
-    vendor: auto-detect
+    cloud: Amazon
+    vendor: OpenShift
   applicationManager:
     enabled: true
   policyController:
     enabled: true
   searchCollector:
     enabled: true
-  serviceRegistry:
-    enabled: true
-    dnsSuffix: "mcm.svc"
-    plugins: "kube-service"
-  cisController:
-    enabled: false
   certPolicyController:
     enabled: true
   iamPolicyController:
     enabled: true
-  version: 1.0.1
+  version: 2.0.0
