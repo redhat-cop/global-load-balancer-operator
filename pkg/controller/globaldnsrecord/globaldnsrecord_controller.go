@@ -15,6 +15,7 @@ import (
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/tools/record"
 	"sigs.k8s.io/controller-runtime/pkg/client"
@@ -81,18 +82,29 @@ func add(mgr manager.Manager, r reconcile.Reconciler) error {
 	}
 
 	//create a watch on DNSEdnpoint, useful only with the external-dns operator
+	//This watch will be created only if DNSEnpoint exists
 
-	// Watch for changes to primary resource GlobalDNSRecord
-	err = c.Watch(&source.Kind{Type: &endpoint.DNSEndpoint{
-		TypeMeta: metav1.TypeMeta{
-			Kind: "DNSEndpoint",
-		},
-	}}, &handler.EnqueueRequestForOwner{
-		IsController: true,
-		OwnerType:    &redhatcopv1alpha1.GlobalDNSRecord{},
-	})
-	if err != nil {
-		return err
+	reconcileGlobalDNSRecord, ok := r.(*ReconcileGlobalDNSRecord)
+	if !ok {
+		return errs.New("unable to convert to ReconcileGlobalDNSRecord")
+	}
+	if ok, err := reconcileGlobalDNSRecord.IsAPIResourceAvailable(schema.GroupVersionKind{
+		Group:   "externaldns.k8s.io",
+		Version: "v1alpha1",
+		Kind:    "DNSEndpoint",
+	}); ok {
+		// Watch for changes to primary resource GlobalDNSRecord
+		err = c.Watch(&source.Kind{Type: &endpoint.DNSEndpoint{
+			TypeMeta: metav1.TypeMeta{
+				Kind: "DNSEndpoint",
+			},
+		}}, &handler.EnqueueRequestForOwner{
+			IsController: true,
+			OwnerType:    &redhatcopv1alpha1.GlobalDNSRecord{},
+		})
+		if err != nil {
+			return err
+		}
 	}
 
 	//cretae watch to receive events

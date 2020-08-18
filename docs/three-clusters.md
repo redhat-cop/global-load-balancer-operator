@@ -50,9 +50,9 @@ export cluster3_service_name=router-default
 export cluster1_service_namespace=openshift-ingress
 export cluster2_service_namespace=openshift-ingress
 export cluster3_service_namespace=openshift-ingress
-export cluster1_secret_name=$(oc get clusterdeployment cluster1-acm-aws-cluster -n cluster1 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
-export cluster2_secret_name=$(oc get clusterdeployment cluster2-acm-aws-cluster -n cluster2 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
-export cluster3_secret_name=$(oc get clusterdeployment cluster3-acm-aws-cluster -n cluster3 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+export cluster1_secret_name=$(oc get clusterdeployment cluster1 -n cluster1 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+export cluster2_secret_name=$(oc get clusterdeployment cluster2 -n cluster2 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
+export cluster3_secret_name=$(oc get clusterdeployment cluster3 -n cluster3 -o jsonpath='{.spec.clusterMetadata.adminKubeconfigSecretRef.name}')
 ```
 
 ## Login to the clusters
@@ -65,8 +65,8 @@ export global_base_domain=global.${cluster_base_domain#*.}
 export control_cluster=$(oc config current-context)
 for cluster in cluster1 cluster2 cluster3; do
   oc config use-context ${control_cluster}
-  password=$(oc get secret $(oc get clusterdeployment ${cluster}-acm-aws-cluster -n ${cluster} -o jsonpath='{.spec.clusterMetadata.adminPasswordSecretRef.name}') -n ${cluster} -o jsonpath='{.data.password}' | base64 -d)
-  url=$(oc get clusterdeployment ${cluster}-acm-aws-cluster -n ${cluster} -o jsonpath='{.status.apiURL}')
+  password=$(oc get secret $(oc get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.spec.clusterMetadata.adminPasswordSecretRef.name}') -n ${cluster} -o jsonpath='{.data.password}' | base64 -d)
+  url=$(oc get clusterdeployment ${cluster} -n ${cluster} -o jsonpath='{.status.apiURL}')
   oc login -u kubeadmin -p ${password} ${url}
   export cluster_${cluster}=$(oc config current-context)
   namespace=global-loadbalancer-operator-test
