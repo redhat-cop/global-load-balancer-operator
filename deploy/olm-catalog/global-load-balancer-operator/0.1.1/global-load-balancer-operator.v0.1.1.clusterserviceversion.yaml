@@ -538,5 +538,5 @@ spec:
   maturity: alpha
   provider:
     name: Red Hat Community of Practice
-  replaces: global-load-balancer-operator.v0.1.1
+  replaces: global-load-balancer-operator.v0.1.0
   version: 0.1.1
