@@ -3,6 +3,7 @@ package globalroutediscovery
 import (
 	"context"
 	errs "errors"
+	"fmt"
 	"reflect"
 
 	"strconv"
@@ -291,24 +292,25 @@ func getGlobalDNSRecord(instance *redhatcopv1alpha1.GlobalRouteDiscovery, name s
 	route0 := routeInfos[0]
 	// consistency checks
 	for i, route := range routeInfos {
+		routeNumberString := fmt.Sprintf("route[%d]", i)
 		if route.Route.Spec.Host != route0.Route.Spec.Host {
 			err := errs.New("route's hosts must match")
-			log.Error(err, "route's host not matching", "route[0]", route0.Route.Spec.Host, "route["+string(i)+"]", route.Route.Spec.Host)
+			log.Error(err, "route's host not matching", "route[0]", route0.Route.Spec.Host, routeNumberString, route.Route.Spec.Host)
 			return nil, err
 		}
 		if route.LoadBalancigPolicy != route0.LoadBalancigPolicy {
 			err := errs.New("route's load balancing policy must match")
-			log.Error(err, "route's load balancing policy not matching", "route[0]", route0.LoadBalancigPolicy, "route["+string(i)+"]", route.LoadBalancigPolicy)
+			log.Error(err, "route's load balancing policy not matching", "route[0]", route0.LoadBalancigPolicy, routeNumberString, route.LoadBalancigPolicy)
 			return nil, err
 		}
 		if route.TTL != route0.TTL {
 			err := errs.New("route's TTLs must match")
-			log.Error(err, "route's TTLs not matching", "route[0]", route0.TTL, "route["+string(i)+"]", route.TTL)
+			log.Error(err, "route's TTLs not matching", "route[0]", route0.TTL, routeNumberString, route.TTL)
 			return nil, err
 		}
 		if !reflect.DeepEqual(route.ReadinessCheck, route0.ReadinessCheck) {
 			err := errs.New("route's health checks must match")
-			log.Error(err, "route's health checks not matching", "route[0]", route0.ReadinessCheck, "route["+string(i)+"]", route.ReadinessCheck)
+			log.Error(err, "route's health checks not matching", "route[0]", route0.ReadinessCheck, routeNumberString, route.ReadinessCheck)
 			return nil, err
 		}
 	}
