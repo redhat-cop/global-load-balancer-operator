@@ -87,7 +87,7 @@ spec:
       scheme: HTTP
     periodSeconds: 10
     successThreshold: 1
-    timeoutSeconds: 1     
+    timeoutSeconds: 1
 ```
 
 The list of endpoints identifies the set of `LoadBalancer` type of services to watch on the remote clusters (at the moment only LoadBalancer services are supported). These are the `LoadBalancer` services created by the [ingress controller](https://docs.openshift.com/container-platform/4.5/networking/ingress-operator.html) on which the routers rely. Each entry of this list requires a reference to the loadbalancer service on the remote cluster and a reference to a local secret containing the credential to connect to the remote cluster.
@@ -145,20 +145,21 @@ spec:
     matchLabels:
       route-type: global
   defaultLoadBalancingPolicy: Multivalue
-  defaultTTL: 30 
+  defaultTTL: 30
   globalZoneRef:
     name: route53-global-dns-zone
 ```
 
-This global discovery route will discover routes in the provided list of cluster. Only the routes that match the route selector will be considered global. 
+This global discovery route will discover routes in the provided list of cluster. Only the routes that match the route selector will be considered global.
 The default load balancing policy and default TTL can be expressed in the `GlobalRouteDiscovery` CR. However with the following annotations, it's possible to configure route-specific values:
 
 * `global-load-balancer-operator.redhat-cop.io/load-balancing-policy` to set the load balancing policy
 * `global-load-balancer-operator.redhat-cop.io/ttl` to set the TTL
+* `global-load-balancer-operator.redhat-cop.io/health-check` to set the health check. This must be a v1core.Probe object in json format.
 
 The globalZoneRef refers to the global zone to be used for the created `GlobalDNSRecords`.
 
-Health checks will also be automatically discovered. If the pods behind the route expose a readiness check of httpGet kind, that configuration will be used to create the GlobalDNSRecord health check.
+If the health check annotation is not provided, the controller will try to automatically discover the health check. If the pods behind the route expose a readiness check of `httpGet` kind, that configuration will be used to create the GlobalDNSRecord health check.
 When more than one container is present in the pod, by default the first container will be examined for health check. This behavior can be overridden with the this annotation on the route: `global-load-balancer-operator.redhat-cop.io/container-probe` where the value will container the name of the container with teh correct readiness probe.
 
 If routes with the same namespace and name exists in multiple cluster, the following conditions must be met:
@@ -184,9 +185,9 @@ You can also set up the cluster on your own, at the end the following conditions
 Three namespace `cluster1` `cluster2` `cluster3` are created.
 the following environment variables are initialized for each cluster:
 
-1. <cluster>_secret_name. Pointing to a secret in each of the cluster namespaces containing a valid kubeconfig fot that cluster
-2. <cluster>_service_name.  Pointing to the name of the loadbalancer service to be used for that cluster.
-3. <cluster>_service_namespace. Pointing to the namespace of the loadbalancer service to be used for that cluster.
+1. `<cluster>_secret_name`. Pointing to a secret in each of the cluster namespaces containing a valid kubeconfig fot that cluster
+2. `<cluster>_service_name`.  Pointing to the name of the loadbalancer service to be used for that cluster.
+3. `<cluster>_service_namespace`. Pointing to the namespace of the loadbalancer service to be used for that cluster.
 
 Here are examples for the supported provider:
 
@@ -222,21 +223,3 @@ export token=$(oc serviceaccounts get-token 'global-load-balancer-operator' -n g
 oc login --token=${token}
 OPERATOR_NAME='global-load-balancer-operator' NAMESPACE='global-load-balancer-operator' operator-sdk --verbose run local --watch-namespace "" --operator-flags="--zap-level=debug"
 ```
-
-
-TODO:
-1. <s>add a watch for DNSRecord</s>
-2. <s>test disapperance of a service: reconcicle cycle should not fail.</s>
-3. test cluster unreachable: reconcile cycle should not fail.
-4. <s>manage status & events</s>
-5. <s>manage delete & finalizers</s>
-5. <s>complete AWS provider</s>
-6. <s>add ability to autodetect global routes</s>
-7. evaluate using a different implementation of DNSRecord. -> not needed
-8. <s>test for correct permissions</s>
-9. <s>optimize remote service watchers</s>
-10. <s>add status management for global zone</s>
-12. <s>add defaults to healthcheck probe in CR</s>
-13. <s>add a name tag to the route53 healthcheck</s>
-14. add support for Weighted, Geolocation, Failover route53 load balancing policies.
-
