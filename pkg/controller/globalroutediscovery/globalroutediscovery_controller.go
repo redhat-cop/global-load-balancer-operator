@@ -2,6 +2,7 @@ package globalroutediscovery
 
 import (
 	"context"
+	"encoding/json"
 	errs "errors"
 	"fmt"
 	"reflect"
@@ -41,6 +42,7 @@ const controllerName = "globalroutediscovery-controller"
 const loadBalancingPolicyAnnotation = "global-load-balancer-operator.redhat-cop.io/load-balancing-policy"
 const containerProbeAnnotation = "global-load-balancer-operator.redhat-cop.io/container-probe"
 const tTLAnnotation = "global-load-balancer-operator.redhat-cop.io/ttl"
+const healthCheckAnnotation = "global-load-balancer-operator.redhat-cop.io/health-check"
 
 var log = logf.Log.WithName(controllerName)
 
@@ -422,6 +424,18 @@ func findQualifyingRoutes(instance *redhatcopv1alpha1.GlobalRouteDiscovery, c cl
 }
 
 func findProbeForRoute(route routev1.Route, c client.Client) (*corev1.Probe, bool, error) {
+	//first let't check if this route defines a healtch cehck via annotation
+	if healthCheckString, ok := route.GetAnnotations()[healthCheckAnnotation]; ok {
+		//let's try to unmarshal this string
+		probe := &corev1.Probe{}
+		err := json.Unmarshal([]byte(healthCheckString), probe)
+		if err != nil {
+			log.Error(err, "unable to unmarshall", "corev1.probe", healthCheckString)
+			return nil, false, err
+		}
+		return probe, true, nil
+	}
+
 	service := &corev1.Service{}
 	err := c.Get(context.TODO(), types.NamespacedName{
 		Name:      route.Spec.To.Name,
