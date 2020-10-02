@@ -9,8 +9,7 @@ export external_dns_namespace=external-dns
 if [ ! -d $HOME/global-load-balancer-operator ];
 then 
     cd $HOME
-    #git clone https://github.com/redhat-cop/global-load-balancer-operator.git
-    git clone https://github.com/tosin2013/global-load-balancer-operator.git
+    git clone https://github.com/redhat-cop/global-load-balancer-operator.git
 fi
 
 cd $HOME/global-load-balancer-operator
