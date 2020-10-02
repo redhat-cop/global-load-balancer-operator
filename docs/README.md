@@ -54,9 +54,14 @@ export cluster_base_domain=$(oc get dns cluster -o jsonpath='{.spec.baseDomain}'
 export cluster_zone_id=$(oc get dns cluster -o jsonpath='{.spec.publicZone.id}')
 export global_base_domain=global.$(oc get dns cluster -o jsonpath='{.spec.baseDomain}')
 
+# Get aws key from external-dns-aws-credentials or provide one
+export aws_key=$(oc get secret external-dns-aws-credentials -n ${external_dns_namespace} -o jsonpath='{.data.aws_secret_access_key}' | base64 -d)
+export aws_id=$(oc get secret external-dns-aws-credentials -n ${external_dns_namespace} -o jsonpath='{.data.aws_access_key_id}' | base64 -d)
+
 # used for the external-dns-provider.sh if you would like to override it
-export aws_key="aws_secret_access_key"
-export aws_id="aws_access_key_id"
+#export aws_key="aws_secret_access_key"
+#export aws_id="aws_access_key_id"
+
 EOF
 ```
 **Call the following scripts**  
