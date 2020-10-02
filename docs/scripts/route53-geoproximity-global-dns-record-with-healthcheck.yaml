@@ -12,17 +12,17 @@ spec:
     loadBalancerServiceRef:
       name: ${cluster1_service_name}
       namespace: ${cluster1_service_namespace}
-  - clusterName: ${cluster1_namespace}
+  - clusterName: cluster2
     clusterCredentialRef:
       name: ${cluster2_secret_name}
-      namespace: ${cluster1_namespace}
+      namespace: ${cluster2_namespace}
     loadBalancerServiceRef:
       name: ${cluster2_service_name}
       namespace: ${cluster2_service_namespace}
-  - clusterName: ${cluster1_namespace}
+  - clusterName: cluster3
     clusterCredentialRef:
       name: ${cluster3_secret_name}
-      namespace: ${cluster1_namespace}
+      namespace: ${cluster3_namespace}
     loadBalancerServiceRef:
       name: ${cluster3_service_name}
       namespace: ${cluster3_service_namespace}
