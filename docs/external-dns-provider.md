@@ -14,6 +14,16 @@ export cluster3_service_namespace=
 export cluster1_secret_name=
 export cluster2_secret_name=
 export cluster3_secret_name=
+
+# One Cluster Three Ingresses Setup
+export cluster1_namespace=cluster1
+export cluster2_namespace=cluster2
+export cluster3_namespace=cluster3
+
+# Three clusters setup
+export CLUSTER_NAMESPACE1=name-of-acm-cluster1
+export CLUSTER_NAMESPACE2=name-of-acm-cluster2
+export CLUSTER_NAMESPACE3=name-of-acm-cluster3
 ```
 
 They will be initialized if you follow one of the installation methods
