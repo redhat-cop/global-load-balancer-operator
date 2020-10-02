@@ -21,19 +21,19 @@ $ chmod +x /usr/local/bin/yq
 sudo dnf install jq
 ```
 
-## Manual Instructions 
+## Manual Instructions  
 * [Setting up external-dns provider](external-dns-provider.md)
 * [Setting up Route53 provider](aws-route53-provider.md)
 * [One Cluster Three Ingresses Setup](one-cluster-three-ingresses.md)
 * [Three clusters setup](three-clusters.md)
 
-## Automated Instructions 
+## Automated Instructions  
 ### One Cluster Three Ingresses Setup
 
-**Configure AWS CLI**
+**Configure AWS CLI**  
 Configure aws cli [configure-aws-cli.sh](https://raw.githubusercontent.com/tosin2013/openshift-4-deployment-notes/master/aws/configure-aws-cli.sh)  
 
-**Export needed variable for following steps for One Cluster Three Ingresses Setup**
+**Export needed variable for following steps for One Cluster Three Ingresses Setup**  
 ```
 cat >glb_env<<EOF
 export cluster1_service_name=router-cluster1
@@ -59,22 +59,22 @@ export aws_key="aws_secret_access_key"
 export aws_id="aws_access_key_id"
 EOF
 ```
-**Call the following scripts**
+**Call the following scripts**  
 1. `./scripts/external-dns-provider.sh`
 2. `./scripts/one_cluster_three_ingresses.sh`
 3. `./scripts/aws-route53-provider.sh`
 
-#### To delete or clean up 
+#### To delete or clean up  
 1. `./scripts/wipe-one-cluster-three-ingresses.sh`
 2. `./scripts/wipe-aws-route53-provider.sh`
 3. `./scripts/wipe-external-dns-provider.sh`
 
 ### ACM Three clusters setup
 
-**Configure AWS CLI**
+**Configure AWS CLI**  
 Configure aws cli [configure-aws-cli.sh](https://raw.githubusercontent.com/tosin2013/openshift-4-deployment-notes/master/aws/configure-aws-cli.sh)  
 
-**Export needed variable for following steps for ACM three clusters**
+**Export needed variable for following steps for ACM three clusters**  
 ```
 export CLUSTER_NAMESPACE1=name-of-acm-cluster1
 export CLUSTER_NAMESPACE2=name-of-acm-cluster2
@@ -113,17 +113,17 @@ export ACM_HUB_TOKEN="acm_token"
 EOF
 ```
 
-**Call the following scripts**
+**Call the following scripts**  
 1. `./scripts/external-dns-provider.sh`
 2. `./scripts/acm-cluster-three-cluster.sh `
 3. `./scripts/aws-route53-provider.sh`
 
-#### To delete or clean up 
+#### To delete or clean up  
 1. `./scripts/wipe-acm-three-cluster.sh`
 2. `./scripts/wipe-aws-route53-provider.sh`
 3. `./scripts/wipe-external-dns-provider.sh `
 
-## Exercise the Global Load Balancer functions
+## Exercise the Global Load Balancer functions  
 ```
 ./exercise-aws-route53-provider.sh -h
 Usage:
@@ -137,12 +137,12 @@ Usage:
     -d|--delete                 delete global dns records from previous examples
 ```
 
-**Run in debug mode**
+**Run in debug mode**  
 ```
 DEBUG=true  ./exercise-aws-route53-provider.sh -h
 ```
 
-**FLAGS that do not work on One cluster, three ingress-gateways.**
+**FLAGS that do not work on One cluster, three ingress-gateways.**  
 * Multivalue with healthcheck
 * Geoproximity with healthcheck
 * Route Autodiscovery
