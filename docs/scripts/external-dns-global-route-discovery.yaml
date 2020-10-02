@@ -7,15 +7,15 @@ spec:
   - clusterName: cluster1
     clusterCredentialRef:
       name: ${cluster1_secret_name}
-      namespace: cluster1
+      namespace: ${cluster1_namespace}
   - clusterName: cluster2
     clusterCredentialRef:
       name: ${cluster2_secret_name}
-      namespace: cluster2
+      namespace: ${cluster1_namespace}
   - clusterName: cluster3
     clusterCredentialRef:
       name: ${cluster3_secret_name}
-      namespace: cluster3
+      namespace: ${cluster1_namespace}
   routeSelector:
     matchLabels:
       route-type: global
