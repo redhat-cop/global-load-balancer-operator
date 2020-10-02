@@ -12,7 +12,7 @@ spec:
     loadBalancerServiceRef:
       name: ${cluster1_service_name}
       namespace: ${cluster1_service_namespace}
-  - clusterName: ${cluster1_namespace}
+  - clusterName: cluster2
     clusterCredentialRef:
       name: ${cluster2_secret_name}
       namespace: ${cluster2_namespace}
