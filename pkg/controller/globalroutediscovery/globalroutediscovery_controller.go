@@ -265,22 +265,20 @@ func (r *ReconcileGlobalRouteDiscovery) Reconcile(request reconcile.Request) (re
 	for _, routeInfo := range qualifyingRoutes {
 		routeRouteInfoSMap[apis.GetKeyShort(&routeInfo.Route)] = append(routeRouteInfoSMap[apis.GetKeyShort(&routeInfo.Route)], routeInfo)
 	}
-	log.V(1).Info("rounte", "infos map len", len(routeRouteInfoSMap))
 	//create or update GlobalDNSRecords
 	for name, routeInfos := range routeRouteInfoSMap {
 		globaDNSRecord, err := getGlobalDNSRecord(instance, name, routeInfos)
 		if err != nil {
-			log.Error(err, "unsable to create global dns record", "for route infos", routeInfos)
+			log.Error(err, "unable to create global dns record", "for route infos", routeInfos)
 			return r.ManageError(instance, err)
 		}
 		err = r.CreateOrUpdateResource(instance, instance.Namespace, globaDNSRecord)
 		if err != nil {
-			log.Error(err, "unsable to create or update", "global dns record", globaDNSRecord)
+			log.Error(err, "unable to create or update", "global dns record", globaDNSRecord)
 			return r.ManageError(instance, err)
 		}
 	}
 
-	//log.V(1).Info("about to update status")
 	return r.ManageSuccess(instance)
 }
 
@@ -435,7 +433,6 @@ func findProbeForRoute(route routev1.Route, c client.Client) (*corev1.Probe, boo
 		}
 		return probe, true, nil
 	}
-
 	service := &corev1.Service{}
 	err := c.Get(context.TODO(), types.NamespacedName{
 		Name:      route.Spec.To.Name,
