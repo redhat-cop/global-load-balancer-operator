@@ -157,6 +157,12 @@ The default load balancing policy and default TTL can be expressed in the `Globa
 * `global-load-balancer-operator.redhat-cop.io/ttl` to set the TTL
 * `global-load-balancer-operator.redhat-cop.io/health-check` to set the health check. This must be a v1core.Probe object in json format.
 
+As an example here is what a v1core.Probe object looks like in json format:
+
+```json
+'{"httpGet":{"path":"health?ready=1","port":443,"scheme":"HTTPS"},"timeoutSeconds":1,"periodSeconds":10,"successThreshold":1,"failureThreshold":3}'
+```
+
 The globalZoneRef refers to the global zone to be used for the created `GlobalDNSRecords`.
 
 If the health check annotation is not provided, the controller will try to automatically discover the health check. If the pods behind the route expose a readiness check of `httpGet` kind, that configuration will be used to create the GlobalDNSRecord health check.
