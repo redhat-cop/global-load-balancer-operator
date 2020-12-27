@@ -1,0 +1,21 @@
+domain: redhat.io
+layout: go.kubebuilder.io/v3
+projectName: global-load-balancer-operator
+repo: github.com/redhat-cop/global-load-balancer-operator
+resources:
+- crdVersion: v1
+  group: redhatcop
+  kind: GlobalDNSRecord
+  version: v1alpha1
+- crdVersion: v1
+  group: redhatcop
+  kind: GlobalRouteDiscovery
+  version: v1alpha1
+- crdVersion: v1
+  group: redhatcop
+  kind: GlobalDNSZone
+  version: v1alpha1
+version: 3-alpha
+plugins:
+  manifests.sdk.operatorframework.io/v2: {}
+  scorecard.sdk.operatorframework.io/v2: {}

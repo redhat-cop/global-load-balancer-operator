@@ -200,32 +200,121 @@ Here are examples for the supported provider:
 1. [Setting up external-dns as provider](./docs/external-dns-provider.md)
 2. [Setting up route53 as a provider](./docs/aws-route53-provider.md)
 
-## Local Development
+## Deploying the Operator
 
-Execute the following steps to develop the functionality locally. It is recommended that development be done using a cluster with `cluster-admin` permissions.
+This is a cluster-level operator that you can deploy in any namespace, `global-load-balancer-operator` is recommended.
 
-```shell
-go mod download
-```
+It is recommended to deploy this operator via [`OperatorHub`](https://operatorhub.io/), but you can also deploy it using [`Helm`](https://helm.sh/).
 
-optionally:
+### Deploying from OperatorHub
 
-```shell
-go mod vendor
-```
+If you want to utilize the Operator Lifecycle Manager (OLM) to install this operator, you can do so in two ways: from the UI or the CLI.
 
-Using the [operator-sdk](https://github.com/operator-framework/operator-sdk), run the operator locally:
+#### Deploying from OperatorHub UI
+
+* If you would like to launch this operator from the UI, you'll need to navigate to the OperatorHub tab in the console.Before starting, make sure you've created the namespace that you want to install this operator to with the following:
 
 ```shell
-oc apply -f deploy/crds/redhatcop.redhat.io_globaldnsrecords_crd.yaml
-oc apply -f deploy/crds/redhatcop.redhat.io_globaldnszones_crd.yaml
-oc apply -f deploy/crds/redhatcop.redhat.io_globalroutediscoveries_crd.yaml
-oc apply -f https://raw.githubusercontent.com/kubernetes-sigs/external-dns/master/docs/contributing/crd-source/crd-manifest.yaml
 oc new-project global-load-balancer-operator
-oc apply -f deploy/service_account.yaml -n global-load-balancer-operator
-oc apply -f deploy/role.yaml -n global-load-balancer-operator
-oc apply -f deploy/role_binding.yaml -n global-load-balancer-operator
-export token=$(oc serviceaccounts get-token 'global-load-balancer-operator' -n global-load-balancer-operator)
-oc login --token=${token}
-OPERATOR_NAME='global-load-balancer-operator' NAMESPACE='global-load-balancer-operator' operator-sdk --verbose run local --watch-namespace "" --operator-flags="--zap-level=debug"
+```
+
+* Once there, you can search for this operator by name: `keepalived`. This will then return an item for our operator and you can select it to get started. Once you've arrived here, you'll be presented with an option to install, which will begin the process.
+* After clicking the install button, you can then select the namespace that you would like to install this to as well as the installation strategy you would like to proceed with (`Automatic` or `Manual`).
+* Once you've made your selection, you can select `Subscribe` and the installation will begin. After a few moments you can go ahead and check your namespace and you should see the operator running.
+
+![Global Load Balancer Operator](./media/global-load-balancer-operator.png)
+
+#### Deploying from OperatorHub using CLI
+
+If you'd like to launch this operator from the command line, you can use the manifests contained in this repository by running the following:
+
+```shell
+oc new-project global-load-balancer-operator
+oc apply -f config/operatorhub -n global-load-balancer-operator
+```
+
+This will create the appropriate OperatorGroup and Subscription and will trigger OLM to launch the operator in the specified namespace.
+
+### Deploying with Helm
+
+Here are the instructions to install the latest release with Helm.
+
+```shell
+oc new-project global-load-balancer-operator
+helm repo add global-load-balancer-operator https://redhat-cop.github.io/global-load-balancer-operator
+helm repo update
+helm install global-load-balancer-operator global-load-balancer-operator/global-load-balancer-operator
+```
+
+This can later be updated with the following commands:
+
+```shell
+helm repo update
+helm upgrade global-load-balancer-operator global-load-balancer-operator/global-load-balancer-operator
+```
+
+## Development
+
+### Running the operator locally
+
+```shell
+make install
+oc new-project global-load-balancer-operator-local
+kustomize build ./config/local-development | oc apply -f - -n global-load-balancer-operator-local
+export token=$(oc serviceaccounts get-token 'default' -n global-load-balancer-operator-local)
+oc login --token ${token}
+make run ENABLE_WEBHOOKS=false
+```
+
+### Building/Pushing the operator image
+
+```shell
+export repo=raffaelespazzoli #replace with yours
+docker login quay.io/$repo/global-load-balancer-operator
+make docker-build IMG=quay.io/$repo/global-load-balancer-operator:latest
+make docker-push IMG=quay.io/$repo/global-load-balancer-operator:latest
+```
+
+### Deploy to OLM via bundle
+
+```shell
+make manifests
+make bundle IMG=quay.io/$repo/global-load-balancer-operator:latest
+operator-sdk bundle validate ./bundle --select-optional name=operatorhub
+make bundle-build BUNDLE_IMG=quay.io/$repo/global-load-balancer-operator-bundle:latest
+docker login quay.io/$repo/global-load-balancer-operator-bundle
+podman push quay.io/$repo/global-load-balancer-operator-bundle:latest
+operator-sdk bundle validate quay.io/$repo/global-load-balancer-operator-bundle:latest --select-optional name=operatorhub
+oc new-project global-load-balancer-operator
+operator-sdk cleanup global-load-balancer-operator -n global-load-balancer-operator
+operator-sdk run bundle --install-mode AllNamespaces -n global-load-balancer-operator quay.io/$repo/global-load-balancer-operator-bundle:latest
+```
+
+### Releasing
+
+```shell
+git tag -a "<tagname>" -m "<commit message>"
+git push upstream <tagname>
+```
+
+If you need to remove a release:
+
+```shell
+git tag -d <tagname>
+git push upstream --delete <tagname>
+```
+
+If you need to "move" a release to the current main
+
+```shell
+git tag -f <tagname>
+git push upstream -f <tagname>
+```
+
+### Cleaning up
+
+```shell
+operator-sdk cleanup global-load-balancer-operator -n global-load-balancer-operator
+oc delete operatorgroup operator-sdk-og
+oc delete catalogsource global-load-balancer-operator-catalog
 ```

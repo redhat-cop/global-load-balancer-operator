@@ -1,0 +1,20 @@
+# permissions for end users to view globaldnsrecords.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: globaldnsrecord-viewer-role
+rules:
+- apiGroups:
+  - redhatcop.redhat.io
+  resources:
+  - globaldnsrecords
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - redhatcop.redhat.io
+  resources:
+  - globaldnsrecords/status
+  verbs:
+  - get
