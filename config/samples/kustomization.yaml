@@ -1,0 +1,9 @@
+## Append samples you want in your CSV to this file as resources ##
+resources:
+- redhatcop_v1alpha1_globaldnsrecord.yaml
+- redhatcop_v1alpha1_globalroutediscovery.yaml
+- redhatcop_v1alpha1_globaldnszone.yaml
+- redhatcop_v1alpha1_globaldnsrecord_route53.yaml
+- redhatcop_v1alpha1_globalroutediscovery_route53.yaml
+- redhatcop_v1alpha1_globaldnszone_route53.yaml
+# +kubebuilder:scaffold:manifestskustomizesamples

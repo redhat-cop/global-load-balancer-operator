@@ -1,0 +1,24 @@
+# permissions for end users to edit globalroutediscoveries.
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: globalroutediscovery-editor-role
+rules:
+- apiGroups:
+  - redhatcop.redhat.io
+  resources:
+  - globalroutediscoveries
+  verbs:
+  - create
+  - delete
+  - get
+  - list
+  - patch
+  - update
+  - watch
+- apiGroups:
+  - redhatcop.redhat.io
+  resources:
+  - globalroutediscoveries/status
+  verbs:
+  - get

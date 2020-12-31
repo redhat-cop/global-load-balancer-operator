@@ -1,0 +1,32 @@
+apiVersion: redhatcop.redhat.io/v1alpha1
+kind: GlobalDNSRecord
+metadata:
+  name: hello-global-record
+spec:
+  name: hello.my.base.domain
+  endpoints:
+  - clusterName: cluster1
+    clusterCredentialRef:
+      name: secret1
+      namespace: cluster1
+    loadBalancerServiceRef:
+      name: cluster-default
+      namespace: openshift-ingress
+  - clusterName: cluster2
+    clusterCredentialRef:
+      name: secret2
+      namespace: cluster2
+    loadBalancerServiceRef:
+      name: cluster-default
+      namespace: openshift-ingress
+  - clusterName: cluster3
+    clusterCredentialRef:
+      name: secret3
+      namespace: cluster3
+    loadBalancerServiceRef:
+      name: cluster-default
+      namespace: openshift-ingress
+  ttl: 60
+  loadBalancingPolicy: Multivalue
+  globalZoneRef:
+    name: external-dns-zone                 
