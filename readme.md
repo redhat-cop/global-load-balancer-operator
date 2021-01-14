@@ -128,7 +128,7 @@ If health checks are defined, a route53 health check originating from any reason
 
 ## Global Route Auto Discovery
 
-The aboev examples showed how to create global DNS records. This can be good in some situations, but most of the times in an openshift deployment global DNS records will point to routes that are intended to be global.
+The above examples showed how to create global DNS records. This can be good in some situations, but most of the times in an openshift deployment global DNS records will point to routes that are intended to be global.
 The global-load-balancer operator can auto-discover these routes and automatically create the corresponding `GloablDNSRecord`. The `GlobalRouteDiscovery` CRD is used to configure the discovery process, here is an example:
 
 ```yaml
@@ -185,7 +185,7 @@ These examples are intended to help you setting up working configuration with ea
 
 Two approaches for cluster setup are provided
 
-1. [One cluster, three ingress-gateways.](./docs/one-cluster-three-ingress-gateways.md) This approach is intended for development purposes and has the objective to keep resource consumption at the minimum.
+1. [One cluster, three ingress-gateways.](./docs/one-cluster-three-ingresses.md) This approach is intended for development purposes and has the objective to keep resource consumption at the minimum.
 2. [Control cluster and three controlled clusters in different regions.](./docs/three-clusters.md). This approach represents a more realistic set-up albeit it consumes more resources.
 
 You can also set up the cluster on your own, at the end the following conditions must be met:
