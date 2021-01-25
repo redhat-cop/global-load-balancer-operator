@@ -4,6 +4,7 @@
 ![build status](https://github.com/redhat-cop/global-load-balancer-operator/workflows/push/badge.svg)
 [![Go Report Card](https://goreportcard.com/badge/github.com/redhat-cop/global-load-balancer-operator)](https://goreportcard.com/report/github.com/redhat-cop/global-load-balancer-operator)
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/redhat-cop/global-load-balancer-operator)
+[![CRD Docs](https://img.shields.io/badge/CRD-Docs-brightgreen)](https://doc.crds.dev/github.com/redhat-cop/global-load-balancer-operator)
 
 The global-load-balancer-operator implements automation to program a DNS service to act as global load balancer for applications deployed to multiple OpenShift clusters.
 This operator is designed to be deployed to a control cluster which will watch the load balanced clusters (controlled clusters).
