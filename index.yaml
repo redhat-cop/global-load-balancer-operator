@@ -3,9 +3,9 @@ entries:
   global-load-balancer-operator:
   - apiVersion: v1
     appVersion: v1.0.1
-    created: "2021-03-22T16:55:15.726504417Z"
+    created: "2021-03-23T15:07:41.962470638Z"
     description: Helm chart that deploys global-load-balancer-operator
-    digest: cfc6a9adbd959e1f6a7abbd78a5c4645955059ada721a0ec277dbdcb9dd3d5e6
+    digest: 1935eee5b7e8b24769cc36480166065a91c2a00fdfd539ee3ad6037dc671aabe
     keywords:
     - volume
     - storage
@@ -20,7 +20,7 @@ entries:
     version: v1.0.1
   - apiVersion: v1
     appVersion: v1.0.0
-    created: "2021-03-22T16:55:15.726030086Z"
+    created: "2021-03-23T15:07:41.921799894Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: 3d9e5870ed1918f993be6f79572288a54a9c1d0c98843e9f1e648ba84288f9b3
     keywords:
@@ -37,7 +37,7 @@ entries:
     version: v1.0.0
   - apiVersion: v1
     appVersion: v0.1.2
-    created: "2021-03-22T16:55:15.725140628Z"
+    created: "2021-03-23T15:07:41.921426893Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: afbb2dd92ee4306c5418923d09a5bcdf5b5c11dcb29adf9308660a36b3e91c99
     keywords:
@@ -55,7 +55,7 @@ entries:
     version: v0.1.2
   - apiVersion: v1
     appVersion: v0.1.1
-    created: "2021-03-22T16:55:15.724653396Z"
+    created: "2021-03-23T15:07:41.920943793Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: 43756a0a306ec20194181af47f527481b21c6da8cc4f0a505767cef1b8bd8407
     keywords:
@@ -73,7 +73,7 @@ entries:
     version: v0.1.1
   - apiVersion: v1
     appVersion: v0.1.0
-    created: "2021-03-22T16:55:15.724109461Z"
+    created: "2021-03-23T15:07:41.920462792Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: 119f793bc8120db8a1bdad9b6a38503b6ae3f863b485e1573cd3dfb3d910271d
     keywords:
@@ -89,4 +89,4 @@ entries:
     urls:
     - https://redhat-cop.github.io/global-load-balancer-operator/global-load-balancer-operator/global-load-balancer-operator-v0.1.0.tgz
     version: v0.1.0
-generated: "2021-03-22T16:55:15.723402515Z"
+generated: "2021-03-23T15:07:41.919606591Z"
