@@ -6,7 +6,7 @@ metadata:
     capabilities: Basic Install
     categories: Networking, Cloud Provider
     certified: "false"
-    containerImage: quay.io/redhat-cop/global-load-balancer-operator:latest
+    containerImage: quay.io/redhat-cop/global-load-balancer-operator
     createdAt: 07/30/2020
     description: This operator creates automation around a DNS to operate as a global load balancer for a set of OpenShift clusters.
     repository: https://github.com/redhat-cop/global-load-balancer-operator
