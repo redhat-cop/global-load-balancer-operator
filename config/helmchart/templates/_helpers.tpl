@@ -50,14 +50,3 @@ Selector labels
 app.kubernetes.io/name: {{ include "global-load-balancer-operator.name" . }}
 app.kubernetes.io/instance: {{ .Release.Name }}
 {{- end }}
-
-{{/*
-Create the name of the service account to use
-*/}}
-{{- define "global-load-balancer-operator.serviceAccountName" -}}
-{{- if .Values.serviceAccount.create }}
-{{- default (include "global-load-balancer-operator.fullname" .) .Values.serviceAccount.name }}
-{{- else }}
-{{- default "default" .Values.serviceAccount.name }}
-{{- end }}
-{{- end }}
