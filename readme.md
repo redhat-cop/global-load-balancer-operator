@@ -268,6 +268,29 @@ oc login --token ${token}
 make run ENABLE_WEBHOOKS=false
 ```
 
+### Test helm chart locally
+
+Define an image and tag. For example...
+
+```shell
+export imageRepository="quay.io/redhat-cop/global-load-balancer-operator"
+export imageTag="v1.0.1"
+```
+
+Deploy chart...
+
+```shell
+make helmchart IMG=${imageRepository} VERSION=${imageTag}
+helm upgrade -i global-load-balancer-operator-local charts/global-load-balancer-operator -n global-load-balancer-operator-local --create-namespace
+```
+
+Delete...
+
+```shell
+helm delete global-load-balancer-operator-local -n global-load-balancer-operator-local
+kubectl delete -f charts/global-load-balancer-operator/crds/crds.yaml
+```
+
 ### Building/Pushing the operator image
 
 ```shell
