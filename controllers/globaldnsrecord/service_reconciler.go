@@ -35,7 +35,7 @@ func newServiceReconciler(mgr *remotemanager.RemoteManager, statusChange chan<- 
 	controllerName := endpoint.GetKey()
 
 	serviceReconciler := &ServiceReconciler{
-		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor(controllerName)),
+		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor(controllerName), mgr.GetAPIReader()),
 		statusChange:   statusChange,
 		remoteManager:  mgr,
 		parentClient:   parentClient,

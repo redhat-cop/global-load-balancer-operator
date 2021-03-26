@@ -100,21 +100,21 @@ func main() {
 	}
 
 	if err = (&globaldnsrecord.GlobalDNSRecordReconciler{
-		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("GlobalDNSRecord_controller")),
+		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("GlobalDNSRecord_controller"), mgr.GetAPIReader()),
 		Log:            ctrl.Log.WithName("controllers").WithName("GlobalDNSRecord"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GlobalDNSRecord")
 		os.Exit(1)
 	}
 	if err = (&globalroutediscovery.GlobalRouteDiscoveryReconciler{
-		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("GlobalRouteDiscovery_controller")),
+		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("GlobalRouteDiscovery_controller"), mgr.GetAPIReader()),
 		Log:            ctrl.Log.WithName("controllers").WithName("GlobalRouteDiscovery"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GlobalRouteDiscovery")
 		os.Exit(1)
 	}
 	if err = (&globaldnszone.GlobalDNSZoneReconciler{
-		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("GlobalDNSZone_controller")),
+		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor("GlobalDNSZone_controller"), mgr.GetAPIReader()),
 		Log:            ctrl.Log.WithName("controllers").WithName("GlobalDNSZone"),
 	}).SetupWithManager(mgr); err != nil {
 		setupLog.Error(err, "unable to create controller", "controller", "GlobalDNSZone")

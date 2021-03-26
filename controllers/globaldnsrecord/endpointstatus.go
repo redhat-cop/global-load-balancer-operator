@@ -111,6 +111,7 @@ func (r *GlobalDNSRecordReconciler) getEndPointStatus(context context.Context, e
 		client:         client,
 		service:        *service,
 		infrastructure: *infrastructure,
+		log:            r.Log.WithName(endpoint.GetKey()),
 	}
 
 	return &endpointStatus, nil

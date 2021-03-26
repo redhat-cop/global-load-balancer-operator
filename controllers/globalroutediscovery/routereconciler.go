@@ -43,7 +43,7 @@ func (r *GlobalRouteDiscoveryReconciler) newRouteReconciler(mgr *remotemanager.R
 	controllerName := cluster.ClusterName
 
 	routeReconciler := &RouteReconciler{
-		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor(controllerName)),
+		ReconcilerBase: util.NewReconcilerBase(mgr.GetClient(), mgr.GetScheme(), mgr.GetConfig(), mgr.GetEventRecorderFor(controllerName), mgr.GetAPIReader()),
 		statusChange:   reconcileEventChannel,
 		remoteManager:  mgr,
 		parentClient:   parentClient,
