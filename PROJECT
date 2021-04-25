@@ -15,7 +15,7 @@ resources:
   group: redhatcop
   kind: GlobalDNSZone
   version: v1alpha1
-version: 3-alpha
+version: "3"
 plugins:
   manifests.sdk.operatorframework.io/v2: {}
   scorecard.sdk.operatorframework.io/v2: {}

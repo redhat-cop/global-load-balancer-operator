@@ -263,7 +263,7 @@ helm upgrade global-load-balancer-operator global-load-balancer-operator/global-
 make install
 oc new-project global-load-balancer-operator-local
 kustomize build ./config/local-development | oc apply -f - -n global-load-balancer-operator-local
-export token=$(oc serviceaccounts get-token 'default' -n global-load-balancer-operator-local)
+export token=$(oc serviceaccounts get-token 'global-load-balancer-operator-controller-manager' -n global-load-balancer-operator-local)
 oc login --token ${token}
 make run ENABLE_WEBHOOKS=false
 ```
@@ -274,7 +274,7 @@ Define an image and tag. For example...
 
 ```shell
 export imageRepository="quay.io/redhat-cop/global-load-balancer-operator"
-export imageTag="v1.0.1"
+export imageTag="$(git describe --tags --abbrev=0)" # grabs the most recent git tag, which should match the image tag
 ```
 
 Deploy chart...
