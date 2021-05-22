@@ -17,6 +17,7 @@ import (
 	"github.com/redhat-cop/global-load-balancer-operator/controllers/common/route53/route53endpointrulereferenceset"
 	"github.com/redhat-cop/operator-utils/pkg/util/apis"
 	corev1 "k8s.io/api/core/v1"
+	"k8s.io/apimachinery/pkg/util/uuid"
 	"sigs.k8s.io/controller-runtime/pkg/reconcile"
 )
 
@@ -115,7 +116,7 @@ func (r *GlobalDNSRecordReconciler) createHealthCheck(probe *corev1.Probe, route
 		return "", err
 	}
 	healthCheckInput := route53.CreateHealthCheckInput{
-		CallerReference:   aws.String(*healthCheckConfig.FullyQualifiedDomainName + "@" + *healthCheckConfig.IPAddress),
+		CallerReference:   aws.String((string(uuid.NewUUID()) + "|" + *healthCheckConfig.IPAddress + "@" + *healthCheckConfig.FullyQualifiedDomainName)[:64]),
 		HealthCheckConfig: healthCheckConfig,
 	}
 	result, err := route53Client.CreateHealthCheck(&healthCheckInput)
