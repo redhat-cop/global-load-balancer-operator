@@ -25,6 +25,16 @@ rules:
   - list
   - watch
 - apiGroups:
+  - cloudcredential.openshift.io
+  resources:
+  - credentialsrequests
+  verbs:
+  - create
+  - get
+  - list
+  - update
+  - watch
+- apiGroups:
   - externaldns.k8s.io
   resources:
   - dnsendpoints

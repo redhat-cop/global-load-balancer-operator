@@ -42,6 +42,7 @@ type GlobalDNSZoneReconciler struct {
 // +kubebuilder:rbac:groups=redhatcop.redhat.io,resources=globaldnszones,verbs=get;list;watch;create;update;patch;delete
 // +kubebuilder:rbac:groups=redhatcop.redhat.io,resources=globaldnszones/status,verbs=get;update;patch
 // +kubebuilder:rbac:groups=redhatcop.redhat.io,resources=globaldnszones/finalizers,verbs=update
+// +kubebuilder:rbac:groups="cloudcredential.openshift.io",resources=credentialsrequests,verbs=get;list;watch;create;update
 
 // Reconcile is part of the main kubernetes reconciliation loop which aims to
 // move the current state of the cluster closer to the desired state.

@@ -262,10 +262,11 @@ helm upgrade global-load-balancer-operator global-load-balancer-operator/global-
 ```shell
 make install
 oc new-project global-load-balancer-operator-local
+oc create serviceaccount global-load-balancer-controller-manager
 kustomize build ./config/local-development | oc apply -f - -n global-load-balancer-operator-local
-export token=$(oc serviceaccounts get-token 'global-load-balancer-operator-controller-manager' -n global-load-balancer-operator-local)
+export token=$(oc serviceaccounts get-token 'global-load-balancer-controller-manager' -n global-load-balancer-operator-local)
 oc login --token ${token}
-make run ENABLE_WEBHOOKS=false
+make run ENABLE_WEBHOOKS=false NAMESPACE=global-load-balancer-operator-local
 ```
 
 ### Test helm chart locally

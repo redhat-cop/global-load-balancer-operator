@@ -5,11 +5,10 @@ import (
 	"encoding/json"
 	"errors"
 	"reflect"
+	"strings"
 
 	"github.com/aws/aws-sdk-go/aws"
 	"github.com/aws/aws-sdk-go/aws/awserr"
-	"github.com/aws/aws-sdk-go/aws/session"
-	"github.com/aws/aws-sdk-go/service/resourcegroupstaggingapi"
 	"github.com/aws/aws-sdk-go/service/route53"
 	ocpconfigv1 "github.com/openshift/api/config/v1"
 	redhatcopv1alpha1 "github.com/redhat-cop/global-load-balancer-operator/api/v1alpha1"
@@ -125,17 +124,22 @@ func (r *GlobalDNSRecordReconciler) createHealthCheck(probe *corev1.Probe, route
 		return "", err
 	}
 	//add tagging of health check
-	tagClient := resourcegroupstaggingapi.New(session.Must(session.NewSession()), &route53Client.Config)
-	_, err = tagClient.TagResources(&resourcegroupstaggingapi.TagResourcesInput{
-		ResourceARNList: []*string{aws.String("arn:aws:route53:::healthcheck/" + *result.Location)},
-		Tags: map[string]*string{
-			"Name": aws.String(probe.HTTPGet.Host + "@" + ip),
+	healthCheckID := strings.Split(*result.Location, "/")[len(strings.Split(*result.Location, "/"))-1]
+	_, err = route53Client.ChangeTagsForResource(&route53.ChangeTagsForResourceInput{
+		AddTags: []*route53.Tag{
+			{
+				Key:   aws.String("Name"),
+				Value: aws.String(probe.HTTPGet.Host + "@" + ip),
+			},
 		},
+		ResourceId:   aws.String(healthCheckID),
+		ResourceType: aws.String("healthcheck"),
 	})
 	if err != nil {
-		r.Log.Error(err, "unable to tag", "health check", *result.Location)
+		r.Log.Error(err, "unable to tag", "health check", healthCheckID)
+		return "", err
 	}
-	return *result.Location, nil
+	return healthCheckID, nil
 }
 
 func (r *GlobalDNSRecordReconciler) getAWSHealthCheckConfig(probe *corev1.Probe, ip string) (*route53.HealthCheckConfig, error) {
@@ -286,9 +290,11 @@ func (r *GlobalDNSRecordReconciler) deleteTrafficPolicy(trafficPolicy *route53.T
 
 	for _, endpointRuleReference := range endpointRuleRefereces {
 		if endpointRuleReference.HealthCheck != "" {
+			healthcheckId := strings.Split(endpointRuleReference.HealthCheck, "/")[len(strings.Split(endpointRuleReference.HealthCheck, "/"))-1]
 			deleteHealthCheckInput := route53.DeleteHealthCheckInput{
-				HealthCheckId: aws.String(endpointRuleReference.HealthCheck),
+				HealthCheckId: aws.String(healthcheckId),
 			}
+			r.Log.Info("about to delete", "HealthCheck", healthcheckId)
 			_, err := route53Client.DeleteHealthCheck(&deleteHealthCheckInput)
 			if err != nil {
 				if aerr, ok := err.(awserr.Error); ok {
@@ -299,7 +305,7 @@ func (r *GlobalDNSRecordReconciler) deleteTrafficPolicy(trafficPolicy *route53.T
 						}
 					default:
 						{
-							r.Log.Error(err, "unable to delete", "healthcheck", endpointRuleReference.HealthCheck)
+							r.Log.Error(err, "unable to delete", "healthcheck", healthcheckId)
 							return err
 						}
 					}
@@ -583,6 +589,7 @@ func (r *GlobalDNSRecordReconciler) getAWSTrafficPolicyDocument(instance *redhat
 							return "", err
 						}
 						route53EndpointRuleReference.HealthCheck = healthCheckID
+						route53EndpointRuleReference.EvaluateTargetHealth = true
 						instance.Status.ProviderStatus.Route53.HealthCheckIDs[instance.Spec.Name+"@"+IP] = healthCheckID
 					}
 					route53EndpointRuleReferences = append(route53EndpointRuleReferences, route53EndpointRuleReference)
@@ -614,6 +621,7 @@ func (r *GlobalDNSRecordReconciler) getAWSTrafficPolicyDocument(instance *redhat
 						return "", err
 					}
 					route53EndpointRuleReference.HealthCheck = healthCheckID
+					route53EndpointRuleReference.EvaluateTargetHealth = true
 					instance.Status.ProviderStatus.Route53.HealthCheckIDs[instance.Spec.Name+"@"+IP] = healthCheckID
 				}
 				route53EndpointRuleReferences = append(route53EndpointRuleReferences, route53EndpointRuleReference)
@@ -644,6 +652,7 @@ func (r *GlobalDNSRecordReconciler) getAWSTrafficPolicyDocument(instance *redhat
 						return "", err
 					}
 					route53EndpointRuleReference.HealthCheck = healthCheckID
+					route53EndpointRuleReference.EvaluateTargetHealth = true
 					instance.Status.ProviderStatus.Route53.HealthCheckIDs[instance.Spec.Name+"@"+IP] = healthCheckID
 				}
 				route53EndpointRuleReferences = append(route53EndpointRuleReferences, route53EndpointRuleReference)

@@ -26,6 +26,7 @@ import (
 
 	operatorv1 "github.com/openshift/api/operator/v1"
 	routev1 "github.com/openshift/api/route/v1"
+	cloudcredentialv1 "github.com/openshift/cloud-credential-operator/pkg/apis/cloudcredential/v1"
 	redhatcopv1alpha1 "github.com/redhat-cop/global-load-balancer-operator/api/v1alpha1"
 	"github.com/redhat-cop/global-load-balancer-operator/controllers/globaldnsrecord"
 	"github.com/redhat-cop/global-load-balancer-operator/controllers/globaldnszone"
@@ -52,6 +53,7 @@ func init() {
 	utilruntime.Must(clientgoscheme.AddToScheme(scheme))
 
 	utilruntime.Must(redhatcopv1alpha1.AddToScheme(scheme))
+	utilruntime.Must(cloudcredentialv1.AddToScheme(scheme))
 	utilruntime.Must(routev1.AddToScheme(scheme))
 	utilruntime.Must(operatorv1.AddToScheme(scheme))
 	utilruntime.Must(addEnpointToScheme(scheme))

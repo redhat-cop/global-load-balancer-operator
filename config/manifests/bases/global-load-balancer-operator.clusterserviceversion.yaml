@@ -7,9 +7,9 @@ metadata:
     categories: Networking, Cloud Provider
     certified: "false"
     containerImage: quay.io/redhat-cop/global-load-balancer-operator
-    operatorframework.io/suggested-namespace: global-load-balancer-operator
     createdAt: 07/30/2020
     description: This operator creates automation around a DNS to operate as a global load balancer for a set of OpenShift clusters.
+    operatorframework.io/suggested-namespace: global-load-balancer-operator
     repository: https://github.com/redhat-cop/global-load-balancer-operator
     support: Best Effort
   name: global-load-balancer-operator.v0.0.0
