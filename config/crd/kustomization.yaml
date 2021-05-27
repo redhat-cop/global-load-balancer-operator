@@ -5,6 +5,7 @@ resources:
 - bases/redhatcop.redhat.io_globaldnsrecords.yaml
 - bases/redhatcop.redhat.io_globalroutediscoveries.yaml
 - bases/redhatcop.redhat.io_globaldnszones.yaml
+- external-dns/dnsendpoint-crd.yaml
 # +kubebuilder:scaffold:crdkustomizeresource
 
 patchesStrategicMerge:

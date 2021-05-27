@@ -58,10 +58,11 @@ type Route53ProviderConfig struct {
 	// +kubebuilder:validation:Required
 	ZoneID string `json:"zoneID"`
 
-	//CredentialsSecretRef is a reference to a secret containing the credentials to access the AWS API //TODO (content and needed permissions)
-	// expected secret keys are "aws_access_key_id" and "aws_secret_access_key"
-	// +kubebuilder:validation:Required
-	CredentialsSecretRef NamespacedName `json:"credentialsSecretRef"`
+	//CredentialsSecretRef is a reference to a secret containing the credentials to access the AWS API. The expected secret keys are "aws_access_key_id" and "aws_secret_access_key".
+	// This is needed when you want to use route53 as your global load balancer but the operator does not run in an AWS cluster.
+	// If the operator runs in an AWS cluster, credentials are automatically requested via a CredendialRequest object.
+	// +kubebuilder:validation:Optional
+	CredentialsSecretRef NamespacedName `json:"credentialsSecretRef,omitempty"`
 }
 
 // GlobalDNSZoneStatus defines the observed state of GlobalDNSZone

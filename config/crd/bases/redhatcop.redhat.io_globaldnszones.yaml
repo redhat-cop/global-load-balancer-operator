@@ -60,9 +60,12 @@ spec:
                     properties:
                       credentialsSecretRef:
                         description: CredentialsSecretRef is a reference to a secret
-                          containing the credentials to access the AWS API //TODO
-                          (content and needed permissions) expected secret keys are
-                          "aws_access_key_id" and "aws_secret_access_key"
+                          containing the credentials to access the AWS API. The expected
+                          secret keys are "aws_access_key_id" and "aws_secret_access_key".
+                          This is needed when you want to use route53 as your global
+                          load balancer but the operator does not run in an AWS cluster.
+                          If the operator runs in an AWS cluster, credentials are
+                          automatically requested via a CredendialRequest object.
                         properties:
                           name:
                             type: string
@@ -76,7 +79,6 @@ spec:
                         description: ZoneID is the AWS route53 zone ID.
                         type: string
                     required:
-                    - credentialsSecretRef
                     - zoneID
                     type: object
                 type: object
