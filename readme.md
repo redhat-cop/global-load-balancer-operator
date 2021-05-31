@@ -255,6 +255,14 @@ helm repo update
 helm upgrade global-load-balancer-operator global-load-balancer-operator/global-load-balancer-operator
 ```
 
+## Metrics
+
+Prometheus compatible metrics are exposed by the Operator and can be integrated into OpenShift's default cluster monitoring. To enable OpenShift cluster monitoring, label the namespace the operator is deployed in with the label `openshift.io/cluster-monitoring="true"`.
+
+```shell
+oc label namespace <namespace> openshift.io/cluster-monitoring="true"
+```
+
 ## Development
 
 ### Running the operator locally
@@ -312,8 +320,20 @@ docker login quay.io/$repo/global-load-balancer-operator-bundle
 podman push quay.io/$repo/global-load-balancer-operator-bundle:latest
 operator-sdk bundle validate quay.io/$repo/global-load-balancer-operator-bundle:latest --select-optional name=operatorhub
 oc new-project global-load-balancer-operator
+oc label namespace global-load-balancer-operator openshift.io/cluster-monitoring="true"
 operator-sdk cleanup global-load-balancer-operator -n global-load-balancer-operator
 operator-sdk run bundle --install-mode AllNamespaces -n global-load-balancer-operator quay.io/$repo/global-load-balancer-operator-bundle:latest
+```
+
+### Testing
+
+#### Testing metrics
+
+```sh
+export operatorNamespace=resource-locker-operator-local # or resource-locker-operator
+oc label namespace ${operatorNamespace} openshift.io/cluster-monitoring="true"
+oc rsh -n openshift-monitoring -c prometheus prometheus-k8s-0 /bin/bash
+curl -v -s -k -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" https://resource-locker-operator-controller-manager-metrics.${operatorNamespace}.svc.cluster.local:8443/metrics
 ```
 
 ### Releasing
