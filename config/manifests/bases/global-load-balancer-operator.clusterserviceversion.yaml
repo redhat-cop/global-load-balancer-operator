@@ -12,6 +12,7 @@ metadata:
     operatorframework.io/suggested-namespace: global-load-balancer-operator
     repository: https://github.com/redhat-cop/global-load-balancer-operator
     support: Best Effort
+    operators.openshift.io/infrastructure-features: '["Disconnected"]'
   name: global-load-balancer-operator.v0.0.0
   namespace: placeholder
 spec:
