@@ -265,6 +265,17 @@ Prometheus compatible metrics are exposed by the Operator and can be integrated 
 oc label namespace <namespace> openshift.io/cluster-monitoring="true"
 ```
 
+### Testing metrics
+
+```sh
+export operatorNamespace=global-load-balancer-operator-local # or global-load-balancer-operator
+oc label namespace ${operatorNamespace} openshift.io/cluster-monitoring="true"
+oc rsh -n openshift-monitoring -c prometheus prometheus-k8s-0 /bin/bash
+export operatorNamespace=global-load-balancer-operator-local # or global-load-balancer-operator
+curl -v -s -k -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" https://global-load-balancer-operator-controller-manager-metrics.${operatorNamespace}.svc.cluster.local:8443/metrics
+exit
+```
+
 ## Development
 
 ### Running the operator locally
@@ -325,19 +336,6 @@ oc new-project global-load-balancer-operator
 oc label namespace global-load-balancer-operator openshift.io/cluster-monitoring="true"
 operator-sdk cleanup global-load-balancer-operator -n global-load-balancer-operator
 operator-sdk run bundle --install-mode AllNamespaces -n global-load-balancer-operator quay.io/$repo/global-load-balancer-operator-bundle:latest
-```
-
-### Testing
-
-#### Testing metrics
-
-```sh
-export operatorNamespace=global-load-balancer-operator-local # or global-load-balancer-operator
-oc label namespace ${operatorNamespace} openshift.io/cluster-monitoring="true"
-oc rsh -n openshift-monitoring -c prometheus prometheus-k8s-0 /bin/bash
-export operatorNamespace=global-load-balancer-operator-local # or global-load-balancer-operator
-curl -v -s -k -H "Authorization: Bearer $(cat /var/run/secrets/kubernetes.io/serviceaccount/token)" https://global-load-balancer-operator-controller-manager-metrics.${operatorNamespace}.svc.cluster.local:8443/metrics
-exit
 ```
 
 ### Releasing
