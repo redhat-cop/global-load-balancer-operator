@@ -208,8 +208,8 @@ func (p *trafficManagerProvider) getTrafficRoutingMethod() (trafficmanager.Traff
 	switch p.instance.Spec.LoadBalancingPolicy {
 	case redhatcopv1alpha1.Multivalue:
 		return trafficmanager.TrafficRoutingMethodMultiValue, nil
-	case redhatcopv1alpha1.Weighted:
-		return trafficmanager.TrafficRoutingMethodWeighted, nil
+	// case redhatcopv1alpha1.Weighted:
+	// 	return trafficmanager.TrafficRoutingMethodWeighted, nil
 	case redhatcopv1alpha1.Geographic:
 		return trafficmanager.TrafficRoutingMethodGeographic, nil
 	case redhatcopv1alpha1.Performance:

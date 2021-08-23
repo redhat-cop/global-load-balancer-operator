@@ -37,8 +37,10 @@ Here is a table summarizing the supported providers and their capabilities:
 |:--:|:--:|:---:|:---:|:---:|
 | External-dns  | no  | yes | no  | no  |
 | Route53  | yes | yes(*)  | yes(*)  | yes(*)  |
+| Azure Traffic Manager (**) | yes | yes | yes | yes |
 
 (*) only if all controlled clusters run on AWS.
+(**) currently all controlled clusters must be on Azure.
 
 ## GlobalDNSRecord
 
@@ -118,13 +120,26 @@ The External-dns should be used as a fall back option when other options are not
 AWS Route53 provider uses the Route53 service as a global loadbalancer and offers advanced routing capabilities via [route53 traffic policies](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/traffic-flow.html) (note that traffic policies will trigger an expense).
 The following routing polices are currently supported:
 
-1. [Multivalue](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy.html#routing-policy-multivalue)
-2. [Geoproximity](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy.html#routing-policy-geoproximity)
-3. [Latency](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy.html#routing-policy-latency)
+1. [Multivalue](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy.html#routing-policy-multivalue).
+2. [Geoproximity](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy.html#routing-policy-geoproximity).
+3. [Latency](https://docs.aws.amazon.com/Route53/latest/DeveloperGuide/routing-policy.html#routing-policy-latency).
 
 AWS Route53 provider at the moment requires that all the controlled clusters run in AWS.
 
-If health checks are defined, a route53 health check originating from any reason (you have to ensure connectivity) will be created for each of the endpoint. Because the endpoint represent s a shared ELB (shared with other apps, that is) and the health check is app specific, we cannot use the ELB health check, so the route53 endpoint is created with one of the two IP exposed by the ELB. This is suboptimal, but it works in most situations.
+If health checks are defined, a route53 health check originating from every region (you have to ensure connectivity) will be created for each of the endpoint. Because the endpoint represents a shared ELB (shared with other apps, that is) and the health check is app specific, we cannot use the ELB health check, so the route53 endpoint is created with one of the two IP exposed by the ELB. This is suboptimal, but it works in most situations.
+
+## Azure Traffic Manager provider
+
+Azure traffic manager provider uses (Azure Traffic Manager)[] to create global load balancer configuration.
+The following routing policies are supported:
+
+1. [Multivalue](https://docs.microsoft.com/en-us/azure/traffic-manager/traffic-manager-routing-methods#multivalue).
+2. [Geographic](https://docs.microsoft.com/en-us/azure/traffic-manager/traffic-manager-routing-methods#geographic).
+3. [Performance](https://docs.microsoft.com/en-us/azure/traffic-manager/traffic-manager-routing-methods#performance).
+
+This is an initial implementation which requires all of the controlled clusters to be on Azure and to be publicly exposed.
+
+Health checks are supported by this provider.
 
 ## Global Route Auto Discovery
 
@@ -201,6 +216,7 @@ Here are examples for the supported provider:
 
 1. [Setting up external-dns as provider](./docs/external-dns-provider.md)
 2. [Setting up route53 as a provider](./docs/aws-route53-provider.md)
+3. [Setting up Azure Traffic Manager as a provider](./docs/azure-trafficmanager-provider.md)
 
 ## Deploying the Operator
 

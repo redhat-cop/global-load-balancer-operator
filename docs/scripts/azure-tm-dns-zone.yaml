@@ -1,0 +1,14 @@
+apiVersion: redhatcop.redhat.io/v1alpha1
+kind: GlobalDNSZone
+metadata:
+  name: azure-dns-traffic-manager-zone
+spec:
+  # Add fields here
+  domain: ${global_base_domain}
+  provider:
+    trafficManager: 
+      credentialsSecretRef:
+        name: azuredns-credentials
+        namespace: ${namespace}
+      resourceGroup: ${resourceGroup}
+      dnsZoneResourceGroup: ${dnsResourceGroup}
