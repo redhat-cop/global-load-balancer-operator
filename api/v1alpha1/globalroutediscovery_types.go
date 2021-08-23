@@ -40,9 +40,10 @@ type GlobalRouteDiscoverySpec struct {
 	// +kubebuilder:validation:Optional
 	RouteSelector metav1.LabelSelector `json:"routeSelector,omitempty"`
 
-	//DefaultLoadBalancingPolicy defines the load balancing policy to be used by default. This can be overridden with a route annotation TODO which?
+	//DefaultLoadBalancingPolicy defines the load balancing policy to be used by default. This can be overridden with this route annotation `global-load-balancer-operator.redhat-cop.io/load-balancing-policy`.
 	// +kubebuilder:validation:Optional
 	// +kubebuilder:default:="Multivalue"
+	// +kubebuilder:validation:Enum:={"Weighted","Multivalue","Geolocation","Geoproximity","Latency","Failover","Geographic","Performance","Subnet"}
 	DefaultLoadBalancingPolicy LoadBalancingPolicy `json:"defaultLoadBalancingPolicy,omitempty"`
 
 	//Dfeault TTL is the TTL for this dns record

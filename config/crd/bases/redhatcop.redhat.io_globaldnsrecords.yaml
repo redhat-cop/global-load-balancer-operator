@@ -59,6 +59,7 @@ spec:
                       type: object
                     clusterName:
                       description: ClusterName name of the cluster to connect to.
+                      pattern: ^[a-z0-9]{1,64}$
                       type: string
                     loadBalancerServiceRef:
                       description: LoadBalancerServiceRef contains a reference to
@@ -214,6 +215,9 @@ spec:
                 - Geoproximity
                 - Latency
                 - Failover
+                - Geographic
+                - Performance
+                - Subnet
                 type: string
               name:
                 description: Name is the fqdn that will be used for this record.
@@ -472,6 +476,14 @@ spec:
                         type: string
                       policyInstanceID:
                         description: PolicyInstanceID represents the ID of the DNSRecord
+                        type: string
+                    type: object
+                  trafficManager:
+                    properties:
+                      name:
+                        description: Name represents the traffic manager name. This
+                          is also used for the traffic manager domain name and needs
+                          to be random
                         type: string
                     type: object
                 type: object

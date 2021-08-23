@@ -43,6 +43,8 @@ type ProviderConfig struct {
 	Route53 *Route53ProviderConfig `json:"route53,omitempty"`
 	// +kubebuilder:validation:Optional
 	ExternalDNS *ExternalDNSProviderConfig `json:"externalDNS,omitempty"`
+	// +kubebuilder:validation:Optional
+	TrafficManager *TrafficManagerProviderConfig `json:"trafficManager,omitempty"`
 }
 
 //ExternalDNSProviderConfig contains configuration on how configure the external DNS provider
@@ -63,6 +65,23 @@ type Route53ProviderConfig struct {
 	// If the operator runs in an AWS cluster, credentials are automatically requested via a CredendialRequest object.
 	// +kubebuilder:validation:Optional
 	CredentialsSecretRef NamespacedName `json:"credentialsSecretRef,omitempty"`
+}
+
+//TrafficManagerProviderConfig contains configuration on how to access the Azure Traffic Manager API
+type TrafficManagerProviderConfig struct {
+
+	//CredentialsSecretRef is a reference to a secret containing the credentials to access the Azure API. The expected secret keys are "aws_access_key_id" and "aws_secret_access_key".
+	// This is mandatory as the credentials minted by OCP cannot operate on traffic manager object, so it's up to you to provide credentials with enough permissions.
+	// +kubebuilder:validation:Required
+	CredentialsSecretRef NamespacedName `json:"credentialsSecretRef"`
+
+	//ResourceGroup is the resource group to be used when manipulating the traffic manager profiles.
+	// +kubebuilder:validation:Required
+	ResourceGroup string `json:"resourceGroup"`
+
+	//DNSZoneResourceGroup is the resource group to be used when manipulating the dns records in the global domain zone.
+	// +kubebuilder:validation:Required
+	DNSZoneResourceGroup string `json:"dnsZoneResourceGroup"`
 }
 
 // GlobalDNSZoneStatus defines the observed state of GlobalDNSZone

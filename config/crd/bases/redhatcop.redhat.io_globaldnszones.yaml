@@ -81,6 +81,40 @@ spec:
                     required:
                     - zoneID
                     type: object
+                  trafficManager:
+                    description: TrafficManagerProviderConfig contains configuration
+                      on how to access the Azure Traffic Manager API
+                    properties:
+                      credentialsSecretRef:
+                        description: CredentialsSecretRef is a reference to a secret
+                          containing the credentials to access the Azure API. The
+                          expected secret keys are "aws_access_key_id" and "aws_secret_access_key".
+                          This is mandatory as the credentials minted by OCP cannot
+                          operate on traffic manager object, so it's up to you to
+                          provide credentials with enough permissions.
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        required:
+                        - name
+                        - namespace
+                        type: object
+                      dnsZoneResourceGroup:
+                        description: DNSZoneResourceGroup is the resource group to
+                          be used when manipulating the dns records in the global
+                          domain zone.
+                        type: string
+                      resourceGroup:
+                        description: ResourceGroup is the resource group to be used
+                          when manipulating the traffic manager profiles.
+                        type: string
+                    required:
+                    - credentialsSecretRef
+                    - dnsZoneResourceGroup
+                    - resourceGroup
+                    type: object
                 type: object
             required:
             - domain

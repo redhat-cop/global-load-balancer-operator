@@ -181,6 +181,13 @@ func (r *GlobalDNSRecordReconciler) Reconcile(context context.Context, req ctrl.
 			return r.ManageError(context, instance, endpointStatusMap, err)
 		}
 	}
+	if globalZone.Spec.Provider.TrafficManager != nil {
+		globalDNSProvider, err = r.createTrafficManagerProvider(context, instance, globalZone, endpointStatusMap)
+		if err != nil {
+			r.Log.Error(err, "unable to create Traffic Manager global dns provider", "instance", instance, "globalZone", globalZone)
+			return r.ManageError(context, instance, endpointStatusMap, err)
+		}
+	}
 	if globalDNSProvider == nil {
 		return r.ManageError(context, instance, endpointStatusMap, errs.New("illegal state: GlobalDNSProvider could be found"))
 	}
@@ -324,14 +331,21 @@ func (r *GlobalDNSRecordReconciler) manageCleanUpLogic(context context.Context, 
 		//nothing to do here because for the ownership rule, the DNSEndpoint record will be deleted and the external-dns operator will clean up the DNS configuration
 		globalDNSProvider, err = r.createExternalDNSProvider(instance, globalzone, nil)
 		if err != nil {
-			r.Log.Error(err, "unable to create externalDNS global dns provider", "insatnce", instance, "globalZone", globalzone)
+			r.Log.Error(err, "unable to create externalDNS global dns provider", "instance", instance, "globalZone", globalzone)
 			return err
 		}
 	}
 	if globalzone.Spec.Provider.Route53 != nil {
 		globalDNSProvider, err = r.createRoute53Provider(context, instance, globalzone, nil)
 		if err != nil {
-			r.Log.Error(err, "unable to create route53 global dns provider", "insatnce", instance, "globalZone", globalzone)
+			r.Log.Error(err, "unable to create route53 global dns provider", "instance", instance, "globalZone", globalzone)
+			return err
+		}
+	}
+	if globalzone.Spec.Provider.TrafficManager != nil {
+		globalDNSProvider, err = r.createTrafficManagerProvider(context, instance, globalzone, nil)
+		if err != nil {
+			r.Log.Error(err, "unable to create Traffic Manager global dns provider", "instance", instance, "globalZone", globalzone)
 			return err
 		}
 	}
