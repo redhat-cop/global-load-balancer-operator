@@ -70,17 +70,31 @@ spec:
                 - clusterName
                 x-kubernetes-list-type: map
               defaultLoadBalancingPolicy:
+                allOf:
+                - enum:
+                  - Weighted
+                  - Multivalue
+                  - Geolocation
+                  - Geoproximity
+                  - Latency
+                  - Failover
+                  - Geographic
+                  - Performance
+                  - Subnet
+                - enum:
+                  - Weighted
+                  - Multivalue
+                  - Geolocation
+                  - Geoproximity
+                  - Latency
+                  - Failover
+                  - Geographic
+                  - Performance
+                  - Subnet
                 default: Multivalue
                 description: DefaultLoadBalancingPolicy defines the load balancing
-                  policy to be used by default. This can be overridden with a route
-                  annotation TODO which?
-                enum:
-                - Weighted
-                - Multivalue
-                - Geolocation
-                - Geoproximity
-                - Latency
-                - Failover
+                  policy to be used by default. This can be overridden with this route
+                  annotation `global-load-balancer-operator.redhat-cop.io/load-balancing-policy`.
                 type: string
               defaultTTL:
                 description: Dfeault TTL is the TTL for this dns record

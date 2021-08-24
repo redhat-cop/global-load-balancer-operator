@@ -1,4 +1,4 @@
-# Setting up external-dns provider
+# Setting up route53 provider
 
 This setup assumes you are running in AWS.
 
@@ -44,11 +44,8 @@ aws route53 change-resource-record-sets --hosted-zone-id ${cluster_zone_id} --ch
 ```shell
 export namespace=global-load-balancer-operator-test
 oc new-project ${namespace}
-envsubst < ./docs/scripts/route53-credentials-request.yaml | oc apply -f - -n ${namespace}
 envsubst < ./docs/scripts/route53-dns-zone.yaml | oc apply -f -
 ```
-
-For provider chose
 
 ### Multivalue example
 
@@ -78,8 +75,7 @@ envsubst < ./docs/scripts/route53-latency-global-dns-record-with-healthcheck.yam
 dig latency-hc.${global_base_domain}
 ```
 
-
-## Route Autodiscovery 
+## Route Autodiscovery
 
 delete global dns records from previous examples
 
@@ -93,6 +89,7 @@ create global route autodiscovery
 envsubst < ./docs/scripts/route53-global-route-discovery.yaml | oc apply -f - -n ${namespace}
 ```
 
+You have to have created some routes that will be selected by this global route discovery.
 check that global dns records are created
 
 ```shell

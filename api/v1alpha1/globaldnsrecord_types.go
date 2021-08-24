@@ -58,7 +58,7 @@ type GlobalDNSRecordSpec struct {
 }
 
 // LoadBalancingPolicy describes the policy used to loadbalance the results of the DNS queries.
-// +kubebuilder:validation:Enum:={"Weighted","Multivalue","Geolocation","Geoproximity","Latency","Failover"}
+// +kubebuilder:validation:Enum:={"Weighted","Multivalue","Geolocation","Geoproximity","Latency","Failover","Geographic","Performance","Subnet"}
 type LoadBalancingPolicy string
 
 const (
@@ -66,7 +66,7 @@ const (
 	Multivalue LoadBalancingPolicy = "Multivalue"
 	// Weighted means that one random IP is returned. If a healthcheck is defined and supported by the selected provider, one random IP is returned among those that are available.
 	Weighted LoadBalancingPolicy = "Weighted"
-	//Geolocation allows to define routing based on the geogrphy of the caller. This requires associating each endpoint with a geography....
+	//Geolocation allows to define routing based on the geography of the caller. This requires associating each endpoint with a geography....
 	Geolocation LoadBalancingPolicy = "Geolocation"
 	// Geoproximity means that the IP that is closest (in terms of distance) to the source is returned.
 	// If more than one record qualifies, a random one is returned.
@@ -76,12 +76,24 @@ const (
 	Latency LoadBalancingPolicy = "Latency"
 	// Failover allows you to define a primary and secodary location. It should be used for active/passive scenarios.
 	Failover LoadBalancingPolicy = "Failover"
+
+	// Geographic means that the IP that is closest (in terms of distance) to the source is returned.
+	// If more than one record qualifies, a random one is returned. Similar to Geoproximity, but used in Azure
+	Geographic LoadBalancingPolicy = "Geographic"
+
+	// Performance means that the IP that is closest (in terms of measured latency) to the source is returned. Typically based on historical latency.
+	// If more than one record qualifies, a random one is returned. Similar to Latency, but used in Azure
+	Performance LoadBalancingPolicy = "Performance"
+
+	//Subnet allows to define routing based on the subnet of IP of the caller. This requires associating each endpoint with one or more subnets....
+	Subnet LoadBalancingPolicy = "Subnet"
 )
 
 // Endpoint represents a traffic ingress point to the cluster. Currently only LoadBalancer service is supported.
 type Endpoint struct {
 	//ClusterName name of the cluster to connect to.
 	// +kubebuilder:validation:Required
+	// +kubebuilder:validation:Pattern="^[a-z0-9]{1,64}$"
 	ClusterName string `json:"clusterName"`
 	//CredentialsSecretRef is a reference to a secret containing the credentials to access the cluster
 	//a key called "kubeconfig" containing a valid kubeconfig file for connecting to the cluster must exist in this secret.
@@ -137,6 +149,14 @@ type GlobalDNSRecordStatus struct {
 type ProviderStatus struct {
 	// +kubebuilder:validation:Optional
 	Route53 *Route53ProviderStatus `json:"route53,omitempty"`
+	// +kubebuilder:validation:Optional
+	TrafficManager *TrafficManagerProviderStatus `json:"trafficManager,omitempty"`
+}
+
+type TrafficManagerProviderStatus struct {
+	//Name represents the traffic manager name. This is also used for the traffic manager domain name and needs to be random
+	// +kubebuilder:validation:Optional
+	Name string `json:"name,omitempty"`
 }
 
 type Route53ProviderStatus struct {

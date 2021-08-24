@@ -43,6 +43,12 @@ import (
 	"sigs.k8s.io/external-dns/endpoint"
 )
 
+type globalDNSProvider interface {
+	//needs to call manage error and manage success
+	ensureDNSRecord(context context.Context) error
+	deleteDNSRecord(context context.Context) error
+}
+
 // GlobalDNSRecordReconciler reconciles a GlobalDNSRecord object
 type GlobalDNSRecordReconciler struct {
 	util.ReconcilerBase
@@ -158,22 +164,42 @@ func (r *GlobalDNSRecordReconciler) Reconcile(context context.Context, req ctrl.
 
 	// verify ability to create desired records, given the combinations of DNS implementation, loadbalancer type, remote cluster infrastructure type, healthchecks
 
+	var globalDNSProvider globalDNSProvider
+
 	if globalZone.Spec.Provider.ExternalDNS != nil {
-		return r.createExternalDNSRecord(context, instance, globalZone, endpointStatusMap)
+		//nothing to do here because for the ownership rule, the DNSEndpoint record will be deleted and the external-dns operator will clean up the DNS configuration
+		globalDNSProvider, err = r.createExternalDNSProvider(instance, globalZone, endpointStatusMap)
+		if err != nil {
+			r.Log.Error(err, "unable to create externalDNS global dns provider", "instance", instance, "globalZone", globalZone)
+			return r.ManageError(context, instance, endpointStatusMap, err)
+		}
 	}
-
 	if globalZone.Spec.Provider.Route53 != nil {
-		return r.createRoute53Record(context, instance, globalZone, endpointStatusMap)
+		globalDNSProvider, err = r.createRoute53Provider(context, instance, globalZone, endpointStatusMap)
+		if err != nil {
+			r.Log.Error(err, "unable to create route53 global dns provider", "instance", instance, "globalZone", globalZone)
+			return r.ManageError(context, instance, endpointStatusMap, err)
+		}
+	}
+	if globalZone.Spec.Provider.TrafficManager != nil {
+		globalDNSProvider, err = r.createTrafficManagerProvider(context, instance, globalZone, endpointStatusMap)
+		if err != nil {
+			r.Log.Error(err, "unable to create Traffic Manager global dns provider", "instance", instance, "globalZone", globalZone)
+			return r.ManageError(context, instance, endpointStatusMap, err)
+		}
+	}
+	if globalDNSProvider == nil {
+		return r.ManageError(context, instance, endpointStatusMap, errs.New("illegal state: GlobalDNSProvider could be found"))
 	}
 
-	// if able create record.
+	err = globalDNSProvider.ensureDNSRecord(context)
+	if err != nil {
+		r.Log.Error(err, "unable to create global record")
+		return r.ManageError(context, instance, endpointStatusMap, err)
+	}
 
 	return r.ManageSuccess(context, instance, endpointStatusMap)
 }
-
-// func GetEndpointKey(endpoint redhatcopv1alpha1.Endpoint) string {
-// 	return endpoint.ClusterName + "#" + endpoint.LoadBalancerServiceRef.Namespace + "/" + endpoint.LoadBalancerServiceRef.Name
-// }
 
 func (r *GlobalDNSRecordReconciler) createRemoteManager(context context.Context, endpoint redhatcopv1alpha1.Endpoint) (*remotemanager.RemoteManager, error) {
 	restConfig, err := r.getRestConfig(context, endpoint)
@@ -299,22 +325,40 @@ func (r *GlobalDNSRecordReconciler) manageCleanUpLogic(context context.Context, 
 
 	// provider specific finalizer
 
+	var globalDNSProvider globalDNSProvider
+
 	if globalzone.Spec.Provider.ExternalDNS != nil {
 		//nothing to do here because for the ownership rule, the DNSEndpoint record will be deleted and the external-dns operator will clean up the DNS configuration
-		return nil
-	}
-	if globalzone.Spec.Provider.Route53 != nil {
-		//we need to delete policy instance
-		//health check
-		//policy
-		err := r.cleanUpRoute53DNSRecord(context, instance, globalzone)
+		globalDNSProvider, err = r.createExternalDNSProvider(instance, globalzone, nil)
 		if err != nil {
-			r.Log.Error(err, "unable to cleanup route53 dns record", "record", instance)
+			r.Log.Error(err, "unable to create externalDNS global dns provider", "instance", instance, "globalZone", globalzone)
 			return err
 		}
-		return nil
 	}
-	return errs.New("illegal state")
+	if globalzone.Spec.Provider.Route53 != nil {
+		globalDNSProvider, err = r.createRoute53Provider(context, instance, globalzone, nil)
+		if err != nil {
+			r.Log.Error(err, "unable to create route53 global dns provider", "instance", instance, "globalZone", globalzone)
+			return err
+		}
+	}
+	if globalzone.Spec.Provider.TrafficManager != nil {
+		globalDNSProvider, err = r.createTrafficManagerProvider(context, instance, globalzone, nil)
+		if err != nil {
+			r.Log.Error(err, "unable to create Traffic Manager global dns provider", "instance", instance, "globalZone", globalzone)
+			return err
+		}
+	}
+	if globalDNSProvider == nil {
+		return errs.New("illegal state: GlobalDNSProvider could be found")
+	}
+
+	err = globalDNSProvider.deleteDNSRecord(context)
+	if err != nil {
+		r.Log.Error(err, "unable to cleanup dns record", "record", instance)
+		return err
+	}
+	return nil
 }
 
 func (r *GlobalDNSRecordReconciler) ensureRemoteManagers(context context.Context) error {

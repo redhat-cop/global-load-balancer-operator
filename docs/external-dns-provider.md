@@ -53,7 +53,7 @@ helm repo add bitnami https://charts.bitnami.com/bitnami
 helm upgrade external-dns bitnami/external-dns --create-namespace -i -n ${external_dns_namespace} -f ./docs/scripts/external-dns-values.yaml --set txtOwnerId=external-dns --set domainFilters[0]=${global_base_domain} --set aws.credentials.secretKey=${aws_key} --set aws.credentials.accessKey=${aws_id} --set podSecurityContext.fsGroup=${sguid} --set podSecurityContext.runAsUser=${uid} --set zoneIdFilters[0]=${global_zone_id}
 ```
 
-At this point install the global-dns-operator with one of the [installation methods]()
+At this point install the global-dns-operator with one of the [installation methods](https://github.com/redhat-cop/global-load-balancer-operator#deploying-the-operator)
 
 ## Create a global DNS zone and record
 
@@ -72,7 +72,7 @@ dig hello.${global_base_domain}
 dig ciao.${global_base_domain}
 ```
 
-## Route Autodiscovery 
+## Route Autodiscovery
 
 create global route autodiscovery
 
@@ -80,6 +80,7 @@ create global route autodiscovery
 envsubst < ./docs/scripts/external-dns-global-route-discovery.yaml | oc apply -f - -n ${namespace}
 ```
 
+You have to have created some routes that will be selected by this global route discovery.
 check that global dns records are created
 
 ```shell
