@@ -474,15 +474,6 @@ func (p *route53Provider) isSameRoute53TrafficPolicyInstance(trafficPolicyInstan
 	return true
 }
 
-func (p *route53Provider) getAWSUpdateTrafficPolicyInstanceInput() *route53.UpdateTrafficPolicyInstanceInput {
-	return &route53.UpdateTrafficPolicyInstanceInput{
-		Id:                   &p.instance.Status.ProviderStatus.Route53.PolicyInstanceID,
-		TTL:                  aws.Int64(int64(p.instance.Spec.TTL)),
-		TrafficPolicyId:      &p.instance.Status.ProviderStatus.Route53.PolicyID,
-		TrafficPolicyVersion: aws.Int64(1),
-	}
-}
-
 func (p *route53Provider) createAWSTrafficPolicyInstance(trafficPolicyID string) (string, error) {
 	createTrafficPolicyInstanceInput := &route53.CreateTrafficPolicyInstanceInput{
 		HostedZoneId:         &p.globalzone.Spec.Provider.Route53.ZoneID,

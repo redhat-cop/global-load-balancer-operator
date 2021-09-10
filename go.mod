@@ -3,6 +3,7 @@ module github.com/redhat-cop/global-load-balancer-operator
 go 1.16
 
 require (
+	cloud.google.com/go/secretmanager v0.1.0
 	github.com/Azure/azure-sdk-for-go v56.3.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.19
 	github.com/Azure/go-autorest/autorest/adal v0.9.14
@@ -10,12 +11,15 @@ require (
 	github.com/fatih/set v0.2.1
 	github.com/go-logr/logr v0.4.0
 	github.com/kr/pretty v0.2.1 // indirect
+	github.com/mmatczuk/go_generics v0.0.0-20181212143635-0aaa050f9bab // indirect
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
 	github.com/openshift/api v0.0.0-20201103184615-27004eede929
 	github.com/openshift/cloud-credential-operator v0.0.0-20210807114232-0d83e9b1045b
 	github.com/redhat-cop/operator-utils v1.1.4
 	github.com/scylladb/go-set v1.0.2
+	golang.org/x/oauth2 v0.0.0-20210819190943-2bc19b11175f
+	google.golang.org/api v0.56.0
 	k8s.io/api v0.20.2
 	k8s.io/apimachinery v0.20.2
 	k8s.io/client-go v0.20.2

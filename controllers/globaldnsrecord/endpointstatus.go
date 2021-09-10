@@ -23,17 +23,16 @@ import (
 )
 
 type EndpointStatus struct {
-	endpoint            redhatcopv1alpha1.Endpoint
-	client              client.Client
-	service             corev1.Service
-	infraSpecificConfig interface{}
-	infrastructure      ocpconfigv1.Infrastructure
-	err                 error
-	log                 logr.Logger
+	endpoint       redhatcopv1alpha1.Endpoint
+	client         client.Client
+	service        corev1.Service
+	infrastructure ocpconfigv1.Infrastructure
+	err            error
+	log            logr.Logger
 }
 
 func (es *EndpointStatus) getIPs() ([]string, error) {
-	IPs := []string{}
+	var IPs []string
 	var err error
 	switch es.infrastructure.Status.PlatformStatus.Type {
 	case ocpconfigv1.AWSPlatformType:
