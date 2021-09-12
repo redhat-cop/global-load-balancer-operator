@@ -40,33 +40,33 @@ func init() {
 	operatorNamespace = on
 }
 
-func GetGCPClients(context context.Context, instance *redhatcopv1alpha1.GlobalDNSZone, r *util.ReconcilerBase) (*compute.Service, *dns.Service, error) {
+func GetGCPClients(context context.Context, instance *redhatcopv1alpha1.GlobalDNSZone, r *util.ReconcilerBase) (string, *compute.Service, *dns.Service, error) {
 	err := ensureCredentialsRequestExists(context, r)
 	if err != nil {
 		log.Error(err, "unable to create CredentialRequest for gcp")
-		return nil, nil, err
+		return "", nil, nil, err
 	}
 	jsonSecret, err := getGCPCredentials(context, instance, r)
 	if err != nil {
 		log.Error(err, "unable to get gcp credentials")
-		return nil, nil, err
+		return "", nil, nil, err
 	}
 	creds, err := google.CredentialsFromJSON(context, []byte(jsonSecret), secretmanager.DefaultAuthScopes()...)
 	if err != nil {
 		log.Error(err, "unable to create gcp creds from json")
-		return nil, nil, err
+		return "", nil, nil, err
 	}
 	computeClient, err := compute.NewService(context, option.WithCredentials(creds))
 	if err != nil {
 		log.Error(err, "unable to create compute client")
-		return nil, nil, err
+		return "", nil, nil, err
 	}
 	dnsClient, err := dns.NewService(context, option.WithCredentials(creds))
 	if err != nil {
 		log.Error(err, "unable to create dns client")
-		return nil, nil, err
+		return "", nil, nil, err
 	}
-	return computeClient, dnsClient, nil
+	return creds.ProjectID, computeClient, dnsClient, nil
 }
 
 func getGCPCredentials(context context.Context, instance *redhatcopv1alpha1.GlobalDNSZone, r *util.ReconcilerBase) (string, error) {
@@ -154,7 +154,11 @@ func getGCPCredentialRequest() *cloudcredentialv1.CredentialsRequest {
 			APIVersion: "cloudcredential.openshift.io/v1",
 			Kind:       "GCPProviderSpec",
 		},
-		PredefinedRoles: []string{},
+		PredefinedRoles: []string{
+			"roles/compute.loadBalancerAdmin",
+			"roles/compute.securityAdmin",
+			"roles/dns.admin",
+		},
 	}
 	request := cloudcredentialv1.CredentialsRequest{
 		ObjectMeta: metav1.ObjectMeta{

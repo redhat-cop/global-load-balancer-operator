@@ -43,6 +43,32 @@ spec:
                 description: ProviderConfig configures kind and access to the DNS
                   Zone. Exactly one of its members must be set.
                 properties:
+                  GCPGLB:
+                    description: TrafficManagerProviderConfig contains configuration
+                      on how to access the Azure Traffic Manager API
+                    properties:
+                      credentialsSecretRef:
+                        description: CredentialsSecretRef is a reference to a secret
+                          containing the credentials to access the gcp API. This is
+                          needed when you want to use gcp glb as your global load
+                          balancer but the operator does not run in a gcp cluster.
+                          If the operator runs in a gcp cluster, credentials are automatically
+                          requested via a CredendialRequest object.
+                        properties:
+                          name:
+                            type: string
+                          namespace:
+                            type: string
+                        required:
+                        - name
+                        - namespace
+                        type: object
+                      managedZoneName:
+                        description: ManagedZoneName is the name of the DNS zone in
+                          which the global records are created. This must be in the
+                          same project as the clusters.
+                        type: string
+                    type: object
                   externalDNS:
                     description: ExternalDNSProviderConfig contains configuration
                       on how configure the external DNS provider
