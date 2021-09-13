@@ -10,8 +10,8 @@ require (
 	github.com/aws/aws-sdk-go v1.40.26
 	github.com/fatih/set v0.2.1
 	github.com/go-logr/logr v0.4.0
+	github.com/hashicorp/go-multierror v1.1.1
 	github.com/kr/pretty v0.2.1 // indirect
-	github.com/mmatczuk/go_generics v0.0.0-20181212143635-0aaa050f9bab // indirect
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
 	github.com/openshift/api v0.0.0-20201103184615-27004eede929

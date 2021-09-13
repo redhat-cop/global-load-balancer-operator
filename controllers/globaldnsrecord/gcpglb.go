@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/go-logr/logr"
+	multierror "github.com/hashicorp/go-multierror"
 	ocpconfigv1 "github.com/openshift/api/config/v1"
 	redhatcopv1alpha1 "github.com/redhat-cop/global-load-balancer-operator/api/v1alpha1"
 	cgoogle "github.com/redhat-cop/global-load-balancer-operator/controllers/common/google"
@@ -65,64 +66,114 @@ func (r *GlobalDNSRecordReconciler) createGCPGLBManagerProvider(context context.
 func (p *googleGCPProvider) deleteDNSRecord(context context.Context) error {
 
 	// delete dns entry (delete if exists logic)
-	response, err := p.dnsClient.ResourceRecordSets.Delete(p.googleProject, p.globalzone.Spec.Provider.GCPGLB.ManagedZoneName, p.instance.Spec.Name, "A").Context(context).Do()
-	if err != nil && response.HTTPStatusCode != 404 {
-		p.log.Error(err, "unable to delete", "dns entry", p.instance.Spec.Name)
-		return err
-	}
-
-	// delete forwarding rule
-	op, err := p.computeClient.GlobalForwardingRules.Delete(p.googleProject, p.getForwardingRuleName()).Context(context).Do()
-	if err != nil && op.HTTPStatusCode != 404 {
-		p.log.Error(err, "unable to delete", "forwarding rule", p.getForwardingRuleName())
-		return err
-	}
-
-	// delete global ip
-	op, err = p.computeClient.GlobalAddresses.Delete(p.googleProject, p.getGlobalIPName()).Context(context).Do()
-	if err != nil && op.HTTPStatusCode != 404 {
-		p.log.Error(err, "unable to delete", "global address", p.getGlobalIPName())
-		return err
-	}
-
-	// delete target tcp proxy
-	op, err = p.computeClient.TargetTcpProxies.Delete(p.googleProject, p.getTargetTCPProxyName()).Context(context).Do()
-	if err != nil && op.HTTPStatusCode != 404 {
-		p.log.Error(err, "unable to delete", "global address", p.getTargetTCPProxyName())
-		return err
-	}
-
-	// delete backend service
-	op, err = p.computeClient.BackendServices.Delete(p.googleProject, p.getBackendServiceName()).Context(context).Do()
-	if err != nil && op.HTTPStatusCode != 404 {
-		p.log.Error(err, "unable to delete", "global address", p.getBackendServiceName())
-		return err
-	}
-
-	// delete health check
-	op, err = p.computeClient.HealthChecks.Delete(p.googleProject, p.getHealthCheckName()).Context(context).Do()
-	if err != nil && op.HTTPStatusCode != 404 {
-		p.log.Error(err, "unable to delete", "global address", p.getHealthCheckName())
-		return err
-	}
-
-	// delete zonal network endpoint groups
-	for name, endpoint := range p.endpointMap {
-		desiredNepsByZone, err := p.getDesiredNepsByZone(context, &endpoint)
-		if err != nil {
-			p.log.Error(err, "unable to get selected nodes by zone for", "endpoint", name)
-			return err
-		}
-		for zone := range desiredNepsByZone {
-			op, err = p.computeClient.NetworkEndpointGroups.Delete(p.googleProject, zone, p.getZonalNetworkEndpointGroupName(zone)).Context(context).Do()
-			if err != nil && op.HTTPStatusCode != 404 {
-				p.log.Error(err, "unable to delete", "global address", p.getZonalNetworkEndpointGroupName(zone))
+	_, err := p.dnsClient.ResourceRecordSets.Delete(p.googleProject, p.globalzone.Spec.Provider.GCPGLB.ManagedZoneName, p.getRecordSetName(), "A").Context(context).Do()
+	if err != nil {
+		if e, ok := err.(*googleapi.Error); ok {
+			if e.Code != 404 {
+				p.log.Error(err, "unable to delete", "dns entry", p.instance.Spec.Name)
 				return err
 			}
 		}
 	}
 
-	return nil
+	// delete forwarding rule
+	_, err = p.computeClient.GlobalForwardingRules.Delete(p.googleProject, p.getForwardingRuleName()).Context(context).Do()
+	if err != nil {
+		if e, ok := err.(*googleapi.Error); ok {
+			if e.Code != 404 {
+				p.log.Error(err, "unable to delete", "forwarding rule", p.getForwardingRuleName())
+				return err
+			}
+		}
+	}
+
+	// delete global ip
+	_, err = p.computeClient.GlobalAddresses.Delete(p.googleProject, p.getGlobalIPName()).Context(context).Do()
+	if err != nil {
+		if e, ok := err.(*googleapi.Error); ok {
+			if e.Code != 404 {
+				p.log.Error(err, "unable to delete", "global address", p.getGlobalIPName())
+				return err
+			}
+		}
+	}
+
+	// delete target tcp proxy
+	_, err = p.computeClient.TargetTcpProxies.Delete(p.googleProject, p.getTargetTCPProxyName()).Context(context).Do()
+	if err != nil {
+		if e, ok := err.(*googleapi.Error); ok {
+			if e.Code != 404 {
+				p.log.Error(err, "unable to delete", "global address", p.getTargetTCPProxyName())
+				return err
+			}
+		}
+	}
+
+	// delete backend service
+	_, err = p.computeClient.BackendServices.Delete(p.googleProject, p.getBackendServiceName()).Context(context).Do()
+	if err != nil {
+		if e, ok := err.(*googleapi.Error); ok {
+			if e.Code != 404 {
+				p.log.Error(err, "unable to delete", "global address", p.getBackendServiceName())
+				return err
+			}
+		}
+	}
+
+	// delete health check
+	_, err = p.computeClient.HealthChecks.Delete(p.googleProject, p.getHealthCheckName()).Context(context).Do()
+	if err != nil {
+		if e, ok := err.(*googleapi.Error); ok {
+			if e.Code != 404 {
+				p.log.Error(err, "unable to delete", "global address", p.getHealthCheckName())
+				return err
+			}
+		}
+	}
+
+	// delete zonal network endpoint groups
+	results := make(chan error)
+	defer close(results)
+	for name, endpoint := range p.endpointMap {
+		namec := name
+		endpointc := endpoint
+		go func() {
+			desiredNepsByZone, err := p.getDesiredNepsByZone(context, &endpointc)
+			if err != nil {
+				p.log.Error(err, "unable to get desired neps by node for", "endpoint", namec)
+				results <- err
+				return
+			}
+			resultsInner := make(chan error)
+			defer close(resultsInner)
+			for zone := range desiredNepsByZone {
+				zonec := zone
+				go func() {
+					_, err = p.computeClient.NetworkEndpointGroups.Delete(p.googleProject, zonec, p.getZonalNetworkEndpointGroupName(zonec)).Context(context).Do()
+					if err != nil {
+						if e, ok := err.(*googleapi.Error); ok {
+							if e.Code != 404 {
+								p.log.Error(err, "unable to delete", "global address", p.getZonalNetworkEndpointGroupName(zonec))
+								resultsInner <- err
+								return
+							}
+						}
+					}
+					resultsInner <- nil
+				}()
+			}
+			resultInner := &multierror.Error{}
+			for range desiredNepsByZone {
+				resultInner = multierror.Append(resultInner, <-resultsInner)
+			}
+			results <- resultInner.ErrorOrNil()
+		}()
+	}
+	result := &multierror.Error{}
+	for range p.endpointMap {
+		result = multierror.Append(result, <-results)
+	}
+	return result.ErrorOrNil()
 }
 
 func (p *googleGCPProvider) ensureDNSRecord(context context.Context) error {
@@ -278,6 +329,7 @@ func (p *googleGCPProvider) ensureBackendService(context context.Context, health
 		}
 	} else {
 		if !p.compareBackendServices(backendService, desiredBackendService) {
+			desiredBackendService.Fingerprint = backendService.Fingerprint
 			op, err := p.computeClient.BackendServices.Update(p.googleProject, name, desiredBackendService).Context(context).Do()
 			if err != nil {
 				p.log.Error(err, "unable to update", "backend service", p.getBackendServiceName())
@@ -290,10 +342,7 @@ func (p *googleGCPProvider) ensureBackendService(context context.Context, health
 }
 
 func (p *googleGCPProvider) compareForwardingRule(a, b *compute.ForwardingRule) bool {
-	if !(a.Ports != nil && b.Ports != nil && a.Ports[0] == b.Ports[0] && a.Ports[1] == b.Ports[1]) {
-		return false
-	}
-	return a.IPProtocol == b.IPProtocol && a.IPAddress == b.IPAddress && a.LoadBalancingScheme == b.LoadBalancingScheme && a.Target == b.Target
+	return a.IPProtocol == b.IPProtocol && a.IPAddress == b.IPAddress && a.LoadBalancingScheme == b.LoadBalancingScheme && a.Target == b.Target && a.PortRange == b.PortRange
 }
 
 func (p *googleGCPProvider) getDesiredForwardingRule(targetTCPProxyID string, globalIP string) (*compute.ForwardingRule, error) {
@@ -340,9 +389,14 @@ func (p *googleGCPProvider) ensureForwardingRule(context context.Context, target
 		}
 	} else {
 		if !p.compareForwardingRule(forwardingRule, desiredForwardingRule) {
-			_, err := p.computeClient.GlobalForwardingRules.Patch(p.googleProject, name, desiredForwardingRule).Context(context).Do()
+			_, err := p.computeClient.GlobalForwardingRules.Delete(p.googleProject, name).Context(context).Do()
 			if err != nil {
-				p.log.Error(err, "unable to patch", "forwarding rule", name)
+				p.log.Error(err, "unable to delete", "forwarding rule", name)
+				return err
+			}
+			_, err = p.computeClient.GlobalForwardingRules.Insert(p.googleProject, desiredForwardingRule).Context(context).Do()
+			if err != nil {
+				p.log.Error(err, "unable to create global", "forwarding rule", name)
 				return err
 			}
 		}
@@ -505,97 +559,126 @@ func (p *googleGCPProvider) getDesiredNepsByZone(context context.Context, endpoi
 
 func (p *googleGCPProvider) ensureZonalNetworkEndpointGroups(context context.Context) ([]*compute.Backend, error) {
 	backends := []*compute.Backend{}
+	results := make(chan error)
+	defer close(results)
 	for name, endpoint := range p.endpointMap {
-		network := "projects/" + p.googleProject + "/global/networks/" + endpoint.infrastructure.Status.InfrastructureName + "-network"
-		subnetwork := "projects/" + p.googleProject + "/regions/" + endpoint.infrastructure.Status.PlatformStatus.GCP.Region + "/subnetworks/" + endpoint.infrastructure.Status.InfrastructureName + "-worker-subnet"
-		desiredNepsByZone, err := p.getDesiredNepsByZone(context, &endpoint)
-		if err != nil {
-			p.log.Error(err, "unable to get selected nodes by zone for", "endpoint", name)
-			return []*compute.Backend{}, err
-		}
-		for zone, desiredNeps := range desiredNepsByZone {
-			// verify if network endpoint group already exists
-			var znepgID string
-			var needsCreation bool
-			znepgName := p.getZonalNetworkEndpointGroupName(zone)
-			znepg, err := p.computeClient.NetworkEndpointGroups.Get(p.googleProject, zone, znepgName).Context(context).Do()
+		namec := name
+		endpointc := endpoint
+		go func() {
+			network := "projects/" + p.googleProject + "/global/networks/" + endpointc.infrastructure.Status.InfrastructureName + "-network"
+			subnetwork := "projects/" + p.googleProject + "/regions/" + endpointc.infrastructure.Status.PlatformStatus.GCP.Region + "/subnetworks/" + endpointc.infrastructure.Status.InfrastructureName + "-worker-subnet"
+			desiredNepsByZone, err := p.getDesiredNepsByZone(context, &endpointc)
 			if err != nil {
-				if e, ok := err.(*googleapi.Error); ok {
-					if e.Code != 404 {
-						p.log.Error(err, "unable to get zonal network endpoint group", "zone", zone, "znepg", znepgName+"-"+zone)
-						return []*compute.Backend{}, err
-					} else {
-						needsCreation = true
-					}
-				}
-			} else {
-				if !strings.Contains(znepg.Network, network) || !strings.Contains(znepg.Subnetwork, subnetwork) || !strings.Contains(znepg.Zone, zone) || znepg.NetworkEndpointType != "GCE_VM_IP_PORT" {
-					_, err := p.computeClient.NetworkEndpointGroups.Delete(p.googleProject, zone, znepgName).Context(context).Do()
+				p.log.Error(err, "unable to get selected nodes by zone for", "endpoint", namec)
+				results <- err
+				return
+			}
+			resultsInner := make(chan error)
+			defer close(resultsInner)
+			for zone, desiredNeps := range desiredNepsByZone {
+				zonec := zone
+				desiredNepsc := desiredNeps
+				// verify if network endpoint group already exists
+				go func() {
+					var znepgID string
+					var needsCreation bool
+					znepgName := p.getZonalNetworkEndpointGroupName(zonec)
+					znepg, err := p.computeClient.NetworkEndpointGroups.Get(p.googleProject, zonec, znepgName).Context(context).Do()
 					if err != nil {
-						p.log.Error(err, "unable to delete zonal network endpoint group", "zone", zone, "znep", znepgName)
-						return []*compute.Backend{}, err
+						if e, ok := err.(*googleapi.Error); ok {
+							if e.Code != 404 {
+								p.log.Error(err, "unable to get zonal network endpoint group", "zone", zonec, "znepg", znepgName)
+								resultsInner <- err
+								return
+							} else {
+								needsCreation = true
+							}
+						}
+					} else {
+						if !strings.Contains(znepg.Network, network) || !strings.Contains(znepg.Subnetwork, subnetwork) || !strings.Contains(znepg.Zone, zonec) || znepg.NetworkEndpointType != "GCE_VM_IP_PORT" {
+							_, err := p.computeClient.NetworkEndpointGroups.Delete(p.googleProject, zonec, znepgName).Context(context).Do()
+							if err != nil {
+								p.log.Error(err, "unable to delete zonal network endpoint group", "zone", zonec, "znep", znepgName)
+								resultsInner <- err
+								return
+							}
+							needsCreation = true
+						}
 					}
-					needsCreation = true
-				}
+					if needsCreation {
+						op, err := p.computeClient.NetworkEndpointGroups.Insert(p.googleProject, zonec, &compute.NetworkEndpointGroup{
+							Zone:                zonec,
+							Network:             network,
+							Subnetwork:          subnetwork,
+							DefaultPort:         443,
+							Name:                znepgName,
+							NetworkEndpointType: "GCE_VM_IP_PORT",
+						}).Context(context).Do()
+						if err != nil {
+							p.log.Error(err, "unable to create zonal network endpoint group", "zone", zonec, "znep", znepgName)
+							resultsInner <- err
+							return
+						}
+						znepgID = op.TargetLink
+					} else {
+						znepgID = znepg.SelfLink
+					}
+					//at this point the znepg exists and it is correct, we can list its neps
+					actualNeps := []compute.NetworkEndpoint{}
+					err = p.computeClient.NetworkEndpointGroups.ListNetworkEndpoints(p.googleProject, zonec, znepgName, &compute.NetworkEndpointGroupsListEndpointsRequest{}).Context(context).Pages(context, func(nepListResult *compute.NetworkEndpointGroupsListNetworkEndpoints) error {
+						for _, neph := range nepListResult.Items {
+							actualNeps = append(actualNeps, *neph.NetworkEndpoint)
+						}
+						return nil
+					})
+					if err != nil {
+						p.log.Error(err, "unable to list network endpoints for zonal network endpoint group", "zone", zonec, "znep", znepgName)
+						resultsInner <- err
+						return
+					}
+					//at this point we need to calculate which endpoit we need to delete vs which ones we need to add
+					toBeDeleted, toBeCreated := p.getNepOuterJoin(actualNeps, desiredNepsc)
+					if len(toBeDeleted) > 0 {
+						_, err = p.computeClient.NetworkEndpointGroups.DetachNetworkEndpoints(p.googleProject, zonec, znepgName, &compute.NetworkEndpointGroupsDetachEndpointsRequest{
+							NetworkEndpoints: toBeDeleted,
+						}).Context(context).Do()
+						if err != nil {
+							p.log.Error(err, "unable to delete", "endpoints", toBeDeleted, "znep", znepgName)
+							resultsInner <- err
+							return
+						}
+					}
+					if len(toBeCreated) > 0 {
+						_, err = p.computeClient.NetworkEndpointGroups.AttachNetworkEndpoints(p.googleProject, zonec, znepgName, &compute.NetworkEndpointGroupsAttachEndpointsRequest{
+							NetworkEndpoints: toBeCreated,
+						}).Context(context).Do()
+						if err != nil {
+							p.log.Error(err, "unable to create", "endpoints", toBeDeleted, "znep", znepgName)
+							resultsInner <- err
+							return
+						}
+					}
+					//at this point the znep is well configured, we can add it to the backends
+					backends = append(backends, &compute.Backend{
+						BalancingMode:             "CONNECTION",
+						MaxConnectionsPerEndpoint: 100,
+						Group:                     znepgID,
+					})
+					resultsInner <- nil
+				}()
 			}
-			if needsCreation {
-				op, err := p.computeClient.NetworkEndpointGroups.Insert(p.googleProject, zone, &compute.NetworkEndpointGroup{
-					Zone:                zone,
-					Network:             network,
-					Subnetwork:          subnetwork,
-					DefaultPort:         443,
-					Name:                znepgName,
-					NetworkEndpointType: "GCE_VM_IP_PORT",
-				}).Context(context).Do()
-				if err != nil {
-					p.log.Error(err, "unable to create zonal network endpoint group", "zone", zone, "znep", znepgName)
-					return []*compute.Backend{}, err
-				}
-				znepgID = op.TargetLink
-			} else {
-				znepgID = znepg.SelfLink
+			resultInner := &multierror.Error{}
+			for range desiredNepsByZone {
+				resultInner = multierror.Append(resultInner, <-resultsInner)
 			}
-			//at this point the znepg exists and it is correct, we can list its neps
-			actualNeps := []compute.NetworkEndpoint{}
-			err = p.computeClient.NetworkEndpointGroups.ListNetworkEndpoints(p.googleProject, zone, znepgName, &compute.NetworkEndpointGroupsListEndpointsRequest{}).Context(context).Pages(context, func(nepListResult *compute.NetworkEndpointGroupsListNetworkEndpoints) error {
-				for _, neph := range nepListResult.Items {
-					actualNeps = append(actualNeps, *neph.NetworkEndpoint)
-				}
-				return nil
-			})
-			if err != nil {
-				p.log.Error(err, "unable to list network endpoints for zonal network endpoint group", "zone", zone, "znep", znepgName)
-				return []*compute.Backend{}, err
-			}
-			//at this point we need to calculate which endpoit we need to delete vs which ones we need to add
-			toBeDeleted, toBeCreated := p.getNepOuterJoin(actualNeps, desiredNeps)
-			if len(toBeDeleted) > 0 {
-				_, err = p.computeClient.NetworkEndpointGroups.DetachNetworkEndpoints(p.googleProject, zone, znepgName, &compute.NetworkEndpointGroupsDetachEndpointsRequest{
-					NetworkEndpoints: toBeDeleted,
-				}).Context(context).Do()
-				if err != nil {
-					p.log.Error(err, "unable to delete", "endpoints", toBeDeleted, "znep", znepgName)
-					return []*compute.Backend{}, err
-				}
-			}
-			if len(toBeCreated) > 0 {
-				_, err = p.computeClient.NetworkEndpointGroups.AttachNetworkEndpoints(p.googleProject, zone, znepgName, &compute.NetworkEndpointGroupsAttachEndpointsRequest{
-					NetworkEndpoints: toBeCreated,
-				}).Context(context).Do()
-				if err != nil {
-					p.log.Error(err, "unable to create", "endpoints", toBeDeleted, "znep", znepgName)
-					return []*compute.Backend{}, err
-				}
-			}
-			//at this point the znep is well configured, we can add it to the backends
-			backends = append(backends, &compute.Backend{
-				BalancingMode:             "CONNECTION",
-				MaxConnectionsPerEndpoint: 100,
-				Group:                     znepgID,
-			})
-		}
+			results <- resultInner.ErrorOrNil()
+		}()
 	}
-	return backends, nil
+	result := &multierror.Error{}
+	for range p.endpointMap {
+		result = multierror.Append(result, <-results)
+	}
+	return backends, result.ErrorOrNil()
 }
 
 func (p *googleGCPProvider) getNepOuterJoin(left []compute.NetworkEndpoint, right []compute.NetworkEndpoint) (leftOuterJoin []*compute.NetworkEndpoint, rightOuterJoin []*compute.NetworkEndpoint) {
