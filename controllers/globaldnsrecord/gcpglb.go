@@ -820,7 +820,7 @@ func (p *googleGCPProvider) ensureFirewallRulesAllowForHealthChecks(context cont
 						p.log.Error(err, "unable to create firewall rule to allow for healthchecks", "result", result)
 						return err
 					}
-					continue
+					return nil
 				}
 			}
 		}
