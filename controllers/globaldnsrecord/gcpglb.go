@@ -296,16 +296,19 @@ func (p *googleGCPProvider) compareBackendServices(a, b *compute.BackendService)
 	if !strset.New(aznegsIds...).IsEqual(strset.New(bznegsIds...)) {
 		return false
 	}
-	return a.Protocol == b.Protocol && a.LoadBalancingScheme == b.LoadBalancingScheme
+	return a.Protocol == b.Protocol && a.LoadBalancingScheme == b.LoadBalancingScheme && a.LocalityLbPolicy == b.LocalityLbPolicy && a.SessionAffinity == b.SessionAffinity
 }
 
 func (p *googleGCPProvider) getDesiredBackendService(healthCheckID string, znegs []*compute.Backend) *compute.BackendService {
 	return &compute.BackendService{
 		Protocol:            "TCP",
 		LoadBalancingScheme: "EXTERNAL",
-		HealthChecks:        []string{healthCheckID},
-		Backends:            znegs,
-		Name:                p.getBackendServiceName(),
+		//LoadBalancingScheme: "INTERNAL_SELF_MANAGED",
+		//LocalityLbPolicy:    "MAGLEV",
+		SessionAffinity: "CLIENT_IP",
+		HealthChecks:    []string{healthCheckID},
+		Backends:        znegs,
+		Name:            p.getBackendServiceName(),
 	}
 }
 
@@ -359,9 +362,10 @@ func (p *googleGCPProvider) getDesiredForwardingRule(targetTCPProxyID string, gl
 		IPProtocol:          "TCP",
 		IPAddress:           globalIP,
 		LoadBalancingScheme: "EXTERNAL",
-		PortRange:           port + "-" + port,
-		Target:              targetTCPProxyID,
-		Name:                p.getForwardingRuleName(),
+		//LoadBalancingScheme: "INTERNAL_SELF_MANAGED",
+		PortRange: port + "-" + port,
+		Target:    targetTCPProxyID,
+		Name:      p.getForwardingRuleName(),
 	}, nil
 }
 
@@ -871,7 +875,7 @@ func (p *googleGCPProvider) getGlobalIPName() string {
 }
 
 func (p *googleGCPProvider) getTargetTCPProxyName() string {
-	return p.getDomain() + "-global-ipv4"
+	return p.getDomain() + "-target-tcp-proxy"
 }
 
 func (p *googleGCPProvider) getForwardingRuleName() string {

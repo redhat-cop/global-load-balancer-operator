@@ -5,12 +5,13 @@
 [![Go Report Card](https://goreportcard.com/badge/github.com/redhat-cop/global-load-balancer-operator)](https://goreportcard.com/report/github.com/redhat-cop/global-load-balancer-operator)
 ![GitHub go.mod Go version](https://img.shields.io/github/go-mod/go-version/redhat-cop/global-load-balancer-operator)
 
-The global-load-balancer-operator implements automation to program a DNS service to act as global load balancer for applications deployed to multiple OpenShift clusters.
+The global-load-balancer-operator implements automation to program a global load balancer for applications deployed to multiple OpenShift clusters.
 This operator is designed to be deployed to a control cluster which will watch the load balanced clusters (controlled clusters).
+A global load balancer can be implemented as a DNS or a global IP anycast configuration.
 There are two main concepts (APIs) provided by this operator:
 
-1. GlobalDNSZone
-2. GlobalDNSRecord
+1. GlobalDNSZone: represents the global load balancer provider and DNS zone in which the global record will be created.
+2. GlobalDNSRecord: represent a globally load balancer application with a DNS record and a set of end points to be load balanced.
 
 ## GlobalDNSZone
 
@@ -31,7 +32,7 @@ spec:
         type: global
 ```
 
-Here is a table summarizing the supported providers and their capabilities:
+Here is a table summarizing the supported DNS-based load balancer providers and their capabilities:
 
 | Provider  | Supports Health Checks  | Supports Multivalue LB | Supports Latency LB  | Supports GeoProximity LB  |
 |:--:|:--:|:---:|:---:|:---:|
@@ -41,6 +42,14 @@ Here is a table summarizing the supported providers and their capabilities:
 
 (*) only if all controlled clusters run on AWS.
 (**) currently all controlled clusters must be on Azure.
+
+Here is a table summarizing the supported Anycast-based load balancer providers and their capabilities:
+
+| Provider  | Supports Health Checks  | Supports TCP-session affinity | Supports Latency LB  | Supports GeoProximity LB  |
+|:--:|:--:|:---:|:---:|:---:|
+| Google Global Load Balancer (***) | yes | yes | client connection are routed to the closer endpoint in terms of network hops up to a maximum of 100 connections per VM | N/A |
+
+(***) currently all controlled clusters must be on Google Cloud.
 
 ## GlobalDNSRecord
 
@@ -141,6 +150,13 @@ This is an initial implementation which requires all of the controlled clusters 
 
 Health checks are supported by this provider.
 
+## Google Global Load Balancer provider
+
+Google Global Load Balancer provider creates a global IP that will load balance directly to the nodes and node port of the service in the GlobalDNSRecord. It sets a maximum of 100 connections per node (currently hard coded). It supports TCP-session affinity.
+The `loadBalancingPolicy` field will be ignored by this provider.
+
+Health checks are supported by this provider and are mandatory.
+
 ## Global Route Auto Discovery
 
 The above examples showed how to create global DNS records. This can be good in some situations, but most of the times in an openshift deployment global DNS records will point to routes that are intended to be global.
@@ -217,6 +233,7 @@ Here are examples for the supported provider:
 1. [Setting up external-dns as provider](./docs/external-dns-provider.md)
 2. [Setting up route53 as a provider](./docs/aws-route53-provider.md)
 3. [Setting up Azure Traffic Manager as a provider](./docs/azure-trafficmanager-provider.md)
+4. [Setting up Google Global Load Balancer as a provider](./docs/GCPGLB-provider.md)
 
 ## Deploying the Operator
 

@@ -1,0 +1,10 @@
+apiVersion: redhatcop.redhat.io/v1alpha1
+kind: GlobalDNSZone
+metadata:
+  name: gcpglb-global-dns-zone
+spec:
+  # Add fields here
+  domain: ${global_base_domain}
+  provider:
+    GCPGLB:
+      managedZoneName: ${global_zone_name}
