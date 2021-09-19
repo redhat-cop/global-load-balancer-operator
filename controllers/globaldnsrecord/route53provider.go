@@ -81,44 +81,6 @@ func (p *route53Provider) ensureDNSRecord(context context.Context) error {
 	return nil
 }
 
-// func (p *route53Provider) createRoute53Record(context context.Context, instance *redhatcopv1alpha1.GlobalDNSRecord, globalzone *redhatcopv1alpha1.GlobalDNSZone, endpointMap map[string]EndpointStatus) (reconcile.Result, error) {
-
-// 	// validate that all infratsrcutre is homogeneus
-// 	for _, endpointStatus := range endpointMap {
-// 		if endpointStatus.infrastructure.Status.PlatformStatus.Type != ocpconfigv1.AWSPlatformType {
-// 			err := errors.New("Illegal state, only AWS endpoints are allowed")
-// 			r.Log.Error(err, "need aws endpoint", "endpoint type", endpointStatus.infrastructure.Status.PlatformStatus.Type)
-// 			return r.ManageError(context, instance, endpointMap, err)
-// 		}
-// 	}
-
-// 	route53Client, err := tpdroute53.GetRoute53Client(context, globalzone, &r.ReconcilerBase)
-// 	if err != nil {
-// 		r.Log.Error(err, "unable to get route53 client")
-// 		return r.ManageError(context, instance, endpointMap, err)
-// 	}
-
-// 	if instance.Status.ProviderStatus.Route53 == nil {
-// 		instance.Status.ProviderStatus.Route53 = &redhatcopv1alpha1.Route53ProviderStatus{}
-// 	}
-
-// 	// ensure traffic policy
-// 	trafficPolicyID, err := r.ensureRoute53TrafficPolicy(instance, route53Client, endpointMap)
-// 	if err != nil {
-// 		r.Log.Error(err, "unable to ensure the existance of", "traffic policy", instance.Spec.LoadBalancingPolicy)
-// 		return r.ManageError(context, instance, endpointMap, err)
-// 	}
-// 	instance.Status.ProviderStatus.Route53.PolicyID = trafficPolicyID
-// 	// ensure dns record
-// 	trafficPolicyInstanceID, err := r.ensureRoute53DNSRecord(instance, globalzone, route53Client, trafficPolicyID)
-// 	if err != nil {
-// 		r.Log.Error(err, "unable to ensure the existance of", "dns record", instance.Spec.Name)
-// 		return r.ManageError(context, instance, endpointMap, err)
-// 	}
-// 	instance.Status.ProviderStatus.Route53.PolicyInstanceID = trafficPolicyInstanceID
-// 	return r.ManageSuccess(context, instance, endpointMap)
-// }
-
 func (p *route53Provider) ensureRoute53HealthCheck(ip string) (string, error) {
 
 	healthChecks, err := p.route53Client.ListHealthChecks(&route53.ListHealthChecksInput{})
@@ -472,15 +434,6 @@ func (p *route53Provider) isSameRoute53TrafficPolicyInstance(trafficPolicyInstan
 		return false
 	}
 	return true
-}
-
-func (p *route53Provider) getAWSUpdateTrafficPolicyInstanceInput() *route53.UpdateTrafficPolicyInstanceInput {
-	return &route53.UpdateTrafficPolicyInstanceInput{
-		Id:                   &p.instance.Status.ProviderStatus.Route53.PolicyInstanceID,
-		TTL:                  aws.Int64(int64(p.instance.Spec.TTL)),
-		TrafficPolicyId:      &p.instance.Status.ProviderStatus.Route53.PolicyID,
-		TrafficPolicyVersion: aws.Int64(1),
-	}
 }
 
 func (p *route53Provider) createAWSTrafficPolicyInstance(trafficPolicyID string) (string, error) {

@@ -45,6 +45,8 @@ type ProviderConfig struct {
 	ExternalDNS *ExternalDNSProviderConfig `json:"externalDNS,omitempty"`
 	// +kubebuilder:validation:Optional
 	TrafficManager *TrafficManagerProviderConfig `json:"trafficManager,omitempty"`
+	// +kubebuilder:validation:Optional
+	GCPGLB *GCPGLBProviderConfig `json:"GCPGLB,omitempty"`
 }
 
 //ExternalDNSProviderConfig contains configuration on how configure the external DNS provider
@@ -82,6 +84,20 @@ type TrafficManagerProviderConfig struct {
 	//DNSZoneResourceGroup is the resource group to be used when manipulating the dns records in the global domain zone.
 	// +kubebuilder:validation:Required
 	DNSZoneResourceGroup string `json:"dnsZoneResourceGroup"`
+}
+
+//TrafficManagerProviderConfig contains configuration on how to access the Azure Traffic Manager API
+type GCPGLBProviderConfig struct {
+
+	//CredentialsSecretRef is a reference to a secret containing the credentials to access the gcp API.
+	// This is needed when you want to use gcp glb as your global load balancer but the operator does not run in a gcp cluster.
+	// If the operator runs in a gcp cluster, credentials are automatically requested via a CredendialRequest object.
+	// +kubebuilder:validation:Optional
+	CredentialsSecretRef NamespacedName `json:"credentialsSecretRef,omitempty"`
+
+	//ManagedZoneName is the name of the DNS zone in which the global records are created. This must be in the same project as the clusters.
+	// +kubebuilder:validation:Required
+	ManagedZoneName string `json:"managedZoneName,omitempty"`
 }
 
 // GlobalDNSZoneStatus defines the observed state of GlobalDNSZone

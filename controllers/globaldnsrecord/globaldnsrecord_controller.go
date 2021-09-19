@@ -188,6 +188,13 @@ func (r *GlobalDNSRecordReconciler) Reconcile(context context.Context, req ctrl.
 			return r.ManageError(context, instance, endpointStatusMap, err)
 		}
 	}
+	if globalZone.Spec.Provider.GCPGLB != nil {
+		globalDNSProvider, err = r.createGCPGLBManagerProvider(context, instance, globalZone, endpointStatusMap)
+		if err != nil {
+			r.Log.Error(err, "unable to create Google global load balancer global dns provider", "instance", instance, "globalZone", globalZone)
+			return r.ManageError(context, instance, endpointStatusMap, err)
+		}
+	}
 	if globalDNSProvider == nil {
 		return r.ManageError(context, instance, endpointStatusMap, errs.New("illegal state: GlobalDNSProvider could be found"))
 	}
@@ -315,37 +322,56 @@ func (r *GlobalDNSRecordReconciler) IsInitialized(obj metav1.Object) bool {
 	return isInitialized
 }
 
-func (r *GlobalDNSRecordReconciler) manageCleanUpLogic(context context.Context, instance *redhatcopv1alpha1.GlobalDNSRecord, globalzone *redhatcopv1alpha1.GlobalDNSZone) error {
-
+func (r *GlobalDNSRecordReconciler) manageCleanUpLogic(context context.Context, instance *redhatcopv1alpha1.GlobalDNSRecord, globalZone *redhatcopv1alpha1.GlobalDNSZone) error {
+	endpointStatusMap := map[string]EndpointStatus{}
 	err := r.ensureRemoteManagers(context)
 	if err != nil {
 		r.Log.Error(err, "unable to ensure correct remote managers")
 		return err
 	}
 
+	for _, endpoint := range instance.Spec.Endpoints {
+		endpointStatus, err := r.getEndPointStatus(context, endpoint)
+		if err != nil {
+			r.Log.Error(err, "unable to retrieve endpoint status for", "endpoint", endpoint)
+			endpointStatus = &EndpointStatus{
+				err:      err,
+				endpoint: endpoint,
+			}
+		}
+		endpointStatusMap[endpoint.GetKey()] = *endpointStatus
+	}
+
 	// provider specific finalizer
 
 	var globalDNSProvider globalDNSProvider
 
-	if globalzone.Spec.Provider.ExternalDNS != nil {
+	if globalZone.Spec.Provider.ExternalDNS != nil {
 		//nothing to do here because for the ownership rule, the DNSEndpoint record will be deleted and the external-dns operator will clean up the DNS configuration
-		globalDNSProvider, err = r.createExternalDNSProvider(instance, globalzone, nil)
+		globalDNSProvider, err = r.createExternalDNSProvider(instance, globalZone, endpointStatusMap)
 		if err != nil {
-			r.Log.Error(err, "unable to create externalDNS global dns provider", "instance", instance, "globalZone", globalzone)
+			r.Log.Error(err, "unable to create externalDNS global dns provider", "instance", instance, "globalZone", globalZone)
 			return err
 		}
 	}
-	if globalzone.Spec.Provider.Route53 != nil {
-		globalDNSProvider, err = r.createRoute53Provider(context, instance, globalzone, nil)
+	if globalZone.Spec.Provider.Route53 != nil {
+		globalDNSProvider, err = r.createRoute53Provider(context, instance, globalZone, endpointStatusMap)
 		if err != nil {
-			r.Log.Error(err, "unable to create route53 global dns provider", "instance", instance, "globalZone", globalzone)
+			r.Log.Error(err, "unable to create route53 global dns provider", "instance", instance, "globalZone", globalZone)
 			return err
 		}
 	}
-	if globalzone.Spec.Provider.TrafficManager != nil {
-		globalDNSProvider, err = r.createTrafficManagerProvider(context, instance, globalzone, nil)
+	if globalZone.Spec.Provider.TrafficManager != nil {
+		globalDNSProvider, err = r.createTrafficManagerProvider(context, instance, globalZone, endpointStatusMap)
 		if err != nil {
-			r.Log.Error(err, "unable to create Traffic Manager global dns provider", "instance", instance, "globalZone", globalzone)
+			r.Log.Error(err, "unable to create Traffic Manager global dns provider", "instance", instance, "globalZone", globalZone)
+			return err
+		}
+	}
+	if globalZone.Spec.Provider.GCPGLB != nil {
+		globalDNSProvider, err = r.createGCPGLBManagerProvider(context, instance, globalZone, endpointStatusMap)
+		if err != nil {
+			r.Log.Error(err, "unable to create Google global load balancer global dns provider", "instance", instance, "globalZone", globalZone)
 			return err
 		}
 	}

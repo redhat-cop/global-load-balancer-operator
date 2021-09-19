@@ -95,8 +95,12 @@ func (e *externalDNSProvider) createExternalDNSRecord(context context.Context) e
 	if err != nil {
 		if errors.IsNotFound(err) {
 			// we need to create
-			controllerutil.SetControllerReference(e.instance, newDNSEndpoint, e.scheme)
-			err := e.client.Create(context, newDNSEndpoint, &client.CreateOptions{})
+			err := controllerutil.SetControllerReference(e.instance, newDNSEndpoint, e.scheme)
+			if err != nil {
+				e.log.Error(err, "unable to set ", "controller reference", newDNSEndpoint)
+				return err
+			}
+			err = e.client.Create(context, newDNSEndpoint, &client.CreateOptions{})
 			if err != nil {
 				e.log.Error(err, "unable to create", "DNSEndpoint", newDNSEndpoint)
 				return err
