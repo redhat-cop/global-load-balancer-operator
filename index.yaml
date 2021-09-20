@@ -2,8 +2,25 @@ apiVersion: v1
 entries:
   global-load-balancer-operator:
   - apiVersion: v1
+    appVersion: v1.4.0
+    created: "2021-09-20T11:33:16.567964048Z"
+    description: Helm chart that deploys global-load-balancer-operator
+    digest: 42627bec62cba59c5fd7ee1aee3f32083957f90177bae115e544b5307d19d433
+    keywords:
+    - volume
+    - storage
+    - csi
+    - expansion
+    - monitoring
+    name: global-load-balancer-operator
+    sources:
+    - https://github.com/redhat-cop/global-load-balancer-operator
+    urls:
+    - https://redhat-cop.github.io/global-load-balancer-operator/global-load-balancer-operator/global-load-balancer-operator-v1.4.0.tgz
+    version: v1.4.0
+  - apiVersion: v1
     appVersion: v1.3.0
-    created: "2021-08-28T14:32:16.299321584Z"
+    created: "2021-09-20T11:33:16.567384241Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: d37189696fde94c2b7154ff0bdcfc17ea3a0d80df2f05f9af3a6e2e985acf636
     keywords:
@@ -20,7 +37,7 @@ entries:
     version: v1.3.0
   - apiVersion: v1
     appVersion: v1.2.0
-    created: "2021-08-28T14:32:16.298240682Z"
+    created: "2021-09-20T11:33:16.566798335Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: 174e0304d50ce7d56bd748e6352ddb266709cf5ad2fe9c75e83fb006d038674b
     keywords:
@@ -37,7 +54,7 @@ entries:
     version: v1.2.0
   - apiVersion: v1
     appVersion: v1.1.0
-    created: "2021-08-28T14:32:16.297401681Z"
+    created: "2021-09-20T11:33:16.566194828Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: a7f34aec9ca62e6cced80a09634cf2b80805d6e448a1a557be494fab9d483818
     keywords:
@@ -54,7 +71,7 @@ entries:
     version: v1.1.0
   - apiVersion: v1
     appVersion: v1.0.7
-    created: "2021-08-28T14:32:16.29630008Z"
+    created: "2021-09-20T11:33:16.565642822Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: 35550fcc90d98102e9fcfb0c0b7acc570e0802f4172b62ec0126866c8abb59fb
     keywords:
@@ -71,7 +88,7 @@ entries:
     version: v1.0.7
   - apiVersion: v1
     appVersion: v1.0.6
-    created: "2021-08-28T14:32:16.295567679Z"
+    created: "2021-09-20T11:33:16.565092915Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: 9220d20ef46887ff345cc3f5858fd056b789ea93e5c751d8bd528399b814a72b
     keywords:
@@ -88,7 +105,7 @@ entries:
     version: v1.0.6
   - apiVersion: v1
     appVersion: v1.0.5
-    created: "2021-08-28T14:32:16.294589178Z"
+    created: "2021-09-20T11:33:16.564558009Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: c9bc9261ff199dc1b473ecf25a6872c1897f8c72553c10646e1b34cdc7572175
     keywords:
@@ -105,7 +122,7 @@ entries:
     version: v1.0.5
   - apiVersion: v1
     appVersion: v1.0.4
-    created: "2021-08-28T14:32:16.293670477Z"
+    created: "2021-09-20T11:33:16.564048104Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: 1ea1cbd88b4b8d1503085f7a92d8d564076bed126e27ec666061bd68b7b80a36
     keywords:
@@ -122,7 +139,7 @@ entries:
     version: v1.0.4
   - apiVersion: v1
     appVersion: v1.0.3
-    created: "2021-08-28T14:32:16.292833376Z"
+    created: "2021-09-20T11:33:16.563105693Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: 03fb77454c2307b78729155556ec3490b0fe4925c1c640dbe5336fd9769948b7
     keywords:
@@ -139,7 +156,7 @@ entries:
     version: v1.0.3
   - apiVersion: v1
     appVersion: v1.0.2
-    created: "2021-08-28T14:32:16.291130674Z"
+    created: "2021-09-20T11:33:16.562475286Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: 6a9b0c308773b0601820da7ebdac4960047d4870e2de1fdd7bbd9d705dcff7a7
     keywords:
@@ -156,7 +173,7 @@ entries:
     version: v1.0.2
   - apiVersion: v1
     appVersion: v1.0.1
-    created: "2021-08-28T14:32:16.290013272Z"
+    created: "2021-09-20T11:33:16.561133171Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: 1935eee5b7e8b24769cc36480166065a91c2a00fdfd539ee3ad6037dc671aabe
     keywords:
@@ -173,7 +190,7 @@ entries:
     version: v1.0.1
   - apiVersion: v1
     appVersion: v1.0.0
-    created: "2021-08-28T14:32:16.289572072Z"
+    created: "2021-09-20T11:33:16.560816767Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: 3d9e5870ed1918f993be6f79572288a54a9c1d0c98843e9f1e648ba84288f9b3
     keywords:
@@ -190,7 +207,7 @@ entries:
     version: v1.0.0
   - apiVersion: v1
     appVersion: v0.1.2
-    created: "2021-08-28T14:32:16.288939371Z"
+    created: "2021-09-20T11:33:16.560477263Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: afbb2dd92ee4306c5418923d09a5bcdf5b5c11dcb29adf9308660a36b3e91c99
     keywords:
@@ -208,7 +225,7 @@ entries:
     version: v0.1.2
   - apiVersion: v1
     appVersion: v0.1.1
-    created: "2021-08-28T14:32:16.28832337Z"
+    created: "2021-09-20T11:33:16.560045159Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: 43756a0a306ec20194181af47f527481b21c6da8cc4f0a505767cef1b8bd8407
     keywords:
@@ -226,7 +243,7 @@ entries:
     version: v0.1.1
   - apiVersion: v1
     appVersion: v0.1.0
-    created: "2021-08-28T14:32:16.287606069Z"
+    created: "2021-09-20T11:33:16.559606054Z"
     description: Helm chart that deploys global-load-balancer-operator
     digest: 119f793bc8120db8a1bdad9b6a38503b6ae3f863b485e1573cd3dfb3d910271d
     keywords:
@@ -242,4 +259,4 @@ entries:
     urls:
     - https://redhat-cop.github.io/global-load-balancer-operator/global-load-balancer-operator/global-load-balancer-operator-v0.1.0.tgz
     version: v0.1.0
-generated: "2021-08-28T14:32:16.286611468Z"
+generated: "2021-09-20T11:33:16.558983547Z"
