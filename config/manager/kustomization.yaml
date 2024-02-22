@@ -13,4 +13,4 @@ kind: Kustomization
 images:
 - name: controller
   newName: quay.io/raffaelespazzoli/global-load-balancer-operator
-  newTag: latest
+  newTag: latest@sha256:b019dd8aadaa2fdf04bf2ee04ef5e38b8e5e510dabdb69ff16bb0fac88d5dceb
