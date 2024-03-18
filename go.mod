@@ -6,7 +6,7 @@ require (
 	cloud.google.com/go/secretmanager v0.1.0
 	github.com/Azure/azure-sdk-for-go v56.3.0+incompatible
 	github.com/Azure/go-autorest/autorest v0.11.19
-	github.com/Azure/go-autorest/autorest/adal v0.9.14
+	github.com/Azure/go-autorest/autorest/adal v0.9.23
 	github.com/aws/aws-sdk-go v1.40.26
 	github.com/fatih/set v0.2.1
 	github.com/go-logr/logr v0.4.0
