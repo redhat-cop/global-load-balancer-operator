@@ -12,7 +12,7 @@ require (
 	github.com/go-logr/logr v0.4.0
 	github.com/hashicorp/go-multierror v1.1.1
 	github.com/kr/pretty v0.2.1 // indirect
-	github.com/onsi/ginkgo v1.16.4
+	github.com/onsi/ginkgo v1.16.5
 	github.com/onsi/gomega v1.13.0
 	github.com/openshift/api v0.0.0-20201103184615-27004eede929
 	github.com/openshift/cloud-credential-operator v0.0.0-20210807114232-0d83e9b1045b
