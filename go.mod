@@ -14,7 +14,7 @@ require (
 	github.com/kr/pretty v0.2.1 // indirect
 	github.com/onsi/ginkgo v1.16.4
 	github.com/onsi/gomega v1.13.0
-	github.com/openshift/api v0.0.0-20201103184615-27004eede929
+	github.com/openshift/api ff84c2c73227
 	github.com/openshift/cloud-credential-operator v0.0.0-20210807114232-0d83e9b1045b
 	github.com/redhat-cop/operator-utils v1.1.4
 	github.com/scylladb/go-set v1.0.2
